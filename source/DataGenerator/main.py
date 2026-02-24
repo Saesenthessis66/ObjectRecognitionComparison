@@ -2,10 +2,18 @@ import bpy
 import math
 import os
 from itertools import product
+import random
+import mathutils
 
-# =====================
-# PATHS & CONSTANTS
-# =====================
+LIGHT_ENERGY_MIN = 8
+LIGHT_ENERGY_MAX = 40
+
+LIGHT_COLOR_MIN = (0.9, 0.9, 0.9)
+LIGHT_COLOR_MAX = (1.0, 1.0, 1.0)
+
+LIGHT_SIZE_MIN = 0.05
+LIGHT_SIZE_MAX = 0.3
+
 BASE_DIR = os.path.dirname(bpy.data.filepath)
 if BASE_DIR == "":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,16 +31,31 @@ CAM_DIST_MIN = 0.30
 CAM_DIST_MAX = 0.35
 CAM_DIST_STEP = 0.05
 
-# =====================
-# SCENE CLEANUP
-# =====================
+BACKGROUND_TYPES = [
+    # "LIGHT_SOLID",
+    # "DARK_SOLID",
+    # "NEUTRAL_COLOR",
+    "HORIZONTAL_GRADIENT",
+    "VERTICAL_GRADIENT",
+    "NOISE_TEXTURE",
+    "DIRTY_BACKGROUND"
+]
+
+def get_object_size_xy(obj):
+    bbox = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
+
+    xs = [v.x for v in bbox]
+    ys = [v.y for v in bbox]
+
+    size_x = max(xs) - min(xs)
+    size_y = max(ys) - min(ys)
+
+    return size_x, size_y
+
 def setup_scene():
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
 
-# =====================
-# MATERIALS
-# =====================
 def create_material(color):
     m = bpy.data.materials.new(name=str(color))
     m.use_nodes = True
@@ -40,6 +63,79 @@ def create_material(color):
     bsdf.inputs["Base Color"].default_value = (*color, 1)
     return m
 
+def set_random_background(scene):
+    bg_type = random.choice(BACKGROUND_TYPES)
+
+    world = scene.world
+    world.use_nodes = True
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+
+    nodes.clear()
+
+    output = nodes.new(type='ShaderNodeOutputWorld')
+    bg = nodes.new(type='ShaderNodeBackground')
+    links.new(bg.outputs['Background'], output.inputs['Surface'])
+
+    # --- 1. Jasne jednolite ---
+    if bg_type == "LIGHT_SOLID":
+        val = random.uniform(0.7, 0.85)
+        bg.inputs['Color'].default_value = (val, val, val, 1)
+
+    # --- 2. Ciemne jednolite ---
+    elif bg_type == "DARK_SOLID":
+        val = random.uniform(0.05, 0.3)
+        bg.inputs['Color'].default_value = (val, val, val, 1)
+
+    # --- 3. Neutralny kolor ---
+    elif bg_type == "NEUTRAL_COLOR":
+        r = random.uniform(0.6, 0.9)
+        g = random.uniform(0.6, 0.9)
+        b = random.uniform(0.5, 0.8)
+        bg.inputs['Color'].default_value = (r, g, b, 1)
+
+    # --- 4. Gradient ---
+    elif bg_type in ["HORIZONTAL_GRADIENT", "VERTICAL_GRADIENT"]:
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        gradient = nodes.new(type='ShaderNodeTexGradient')
+        mapping = nodes.new(type='ShaderNodeMapping')
+
+        if bg_type == "VERTICAL_GRADIENT":
+            mapping.inputs['Rotation'].default_value[2] = math.radians(90)
+
+        links.new(tex_coord.outputs['Generated'], mapping.inputs['Vector'])
+        links.new(mapping.outputs['Vector'], gradient.inputs['Vector'])
+        links.new(gradient.outputs['Color'], bg.inputs['Color'])
+
+    # --- 5. Lekki noise ---
+    elif bg_type == "NOISE_TEXTURE":
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        noise = nodes.new(type='ShaderNodeTexNoise')
+
+        noise.inputs['Scale'].default_value = random.uniform(2, 6)
+        noise.inputs['Detail'].default_value = 2
+
+        links.new(tex_coord.outputs['Generated'], noise.inputs['Vector'])
+        links.new(noise.outputs['Color'], bg.inputs['Color'])
+
+    # --- 6. Brudne tło ---
+    elif bg_type == "DIRTY_BACKGROUND":
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        noise = nodes.new(type='ShaderNodeTexNoise')
+        ramp = nodes.new(type='ShaderNodeValToRGB')
+
+        noise.inputs['Scale'].default_value = random.uniform(5, 15)
+        noise.inputs['Detail'].default_value = 5
+
+        ramp.color_ramp.elements[0].color = (0.3, 0.3, 0.3, 1)
+        ramp.color_ramp.elements[1].color = (0.7, 0.7, 0.7, 1)
+
+        links.new(tex_coord.outputs['Generated'], noise.inputs['Vector'])
+        links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+        links.new(ramp.outputs['Color'], bg.inputs['Color'])
+
+    # losowa siła tła (ważne!)
+    bg.inputs['Strength'].default_value = random.uniform(0.7, 1.3)
 
 def create_transparent_material():
     m = bpy.data.materials.new(name="TRANSPARENT")
@@ -58,20 +154,16 @@ def create_materials():
         "TRANSPARENT": create_transparent_material(),
     }
 
-# =====================
-# CAMERA & LIGHT
-# =====================
 def setup_camera_light(scene):
     bpy.ops.object.camera_add(location=(0, -1, 0))
     cam = bpy.context.object
     scene.camera = cam
 
     bpy.ops.object.light_add(type='AREA', location=(0, -1, 1))
-    return cam
+    light = bpy.context.object
 
-# =====================
-# OBJECT CREATION
-# =====================
+    return cam, light
+
 def create_object(materials, bits):
     obj_list = []
 
@@ -109,23 +201,49 @@ def create_object(materials, bits):
 
     return bpy.context.object
 
-# =====================
-# RENDER SINGLE SAMPLE
-# =====================
+def get_camera_view_size(scene, cam, distance):
+    fov = cam.data.angle  # poziomy FOV w radianach
+
+    aspect = scene.render.resolution_x / scene.render.resolution_y
+
+    view_width = 2 * distance * math.tan(fov / 2)
+    view_height = view_width / aspect
+
+    return view_width, view_height
+
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath):
     obj.rotation_euler[2] = math.radians(rotation_z)
 
+    obj.rotation_euler[2] = math.radians(rotation_z)
+
+    # wymuś update transformacji
+    bpy.context.view_layer.update()
+
+    view_w, view_h = get_camera_view_size(scene, cam, cam_dist)
+    obj_w, obj_h = get_object_size_xy(obj)
+
+    # ile może wyjść poza kadr (np 30%)
+    overflow_ratio = 0.05
+
+    max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
+    max_offset_y = (view_h - obj_h) / 2 + obj_h * overflow_ratio
+
+    offset_x = random.uniform(-max_offset_x, max_offset_x)
+    offset_y = random.uniform(-max_offset_y, max_offset_y)
+
+    obj.location.x += offset_x
+    obj.location.y += offset_y
+
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
+    scene.cycles.samples = random.randint(16, 64)
+    scene.view_settings.exposure = random.uniform(-0.5, 0.5)
 
     scene.render.filepath = filepath
     bpy.ops.render.render(write_still=True)
 
     bpy.data.objects.remove(obj, do_unlink=True)
 
-# =====================
-# DATASET GENERATION
-# =====================
 def generate_dataset():
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
@@ -141,7 +259,7 @@ def generate_dataset():
 
         idx = 0
         setup_scene()
-        cam = setup_camera_light(scene)
+        cam, light = setup_camera_light(scene)
 
         rot = ROT_MIN
         while rot <= ROT_MAX:
@@ -152,13 +270,20 @@ def generate_dataset():
                 filename = f"img_{idx:05d}_rot_{rot}_dist_{dist:.2f}.png"
                 filepath = os.path.join(img_dir, filename)
 
+                light.data.energy = random.uniform(LIGHT_ENERGY_MIN, LIGHT_ENERGY_MAX)
+                light.data.color = (
+                    random.uniform(LIGHT_COLOR_MIN[0], LIGHT_COLOR_MAX[0]),
+                    random.uniform(LIGHT_COLOR_MIN[1], LIGHT_COLOR_MAX[1]),
+                    random.uniform(LIGHT_COLOR_MIN[2], LIGHT_COLOR_MAX[2]),
+                )
+
+                light.data.size = random.uniform(LIGHT_SIZE_MIN, LIGHT_SIZE_MAX)
+                set_random_background(scene)
+
                 render_sample(scene, cam, obj, rot, dist, filepath)
 
                 idx += 1
                 dist += CAM_DIST_STEP
             rot += ROT_STEP
 
-# =====================
-# RUN
-# =====================
 generate_dataset()
