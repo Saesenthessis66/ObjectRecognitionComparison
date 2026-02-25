@@ -27,9 +27,18 @@ ROT_MIN = -15
 ROT_MAX = -10
 ROT_STEP = 5
 
-CAM_DIST_MIN = 0.30
-CAM_DIST_MAX = 0.35
+CAM_DIST_MIN = 0.40
+CAM_DIST_MAX = 0.50
 CAM_DIST_STEP = 0.05
+
+CLASS_MAP = {
+    "00": 0,
+    "01": 1,
+    "10": 2,
+    "11": 3,
+}
+
+CURRENT_CLASS_ID = 0
 
 BACKGROUND_TYPES = [
     # "LIGHT_SOLID",
@@ -223,7 +232,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath):
     obj_w, obj_h = get_object_size_xy(obj)
 
     # ile może wyjść poza kadr (np 30%)
-    overflow_ratio = 0.05
+    overflow_ratio = 0.00
 
     max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
     max_offset_y = (view_h - obj_h) / 2 + obj_h * overflow_ratio
@@ -232,15 +241,20 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath):
     offset_y = random.uniform(-max_offset_y, max_offset_y)
 
     obj.location.x += offset_x
-    obj.location.y += offset_y
+    obj.location.z += offset_y
 
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
     scene.cycles.samples = random.randint(16, 64)
     scene.view_settings.exposure = random.uniform(-0.5, 0.5)
+    scene.cycles.use_denoising = False
 
     scene.render.filepath = filepath
+    bbox = get_yolo_bbox(scene, cam, obj)
     bpy.ops.render.render(write_still=True)
+
+    if bbox is not None:
+        save_yolo_label(scene.render.filepath, CURRENT_CLASS_ID, bbox)
 
     bpy.data.objects.remove(obj, do_unlink=True)
 
@@ -254,6 +268,8 @@ def generate_dataset():
 
     for bits in product([0, 1], repeat=2):
         seq_name = f"{bits[0]}{bits[1]}"
+        global CURRENT_CLASS_ID
+        CURRENT_CLASS_ID = CLASS_MAP[seq_name]
         img_dir = os.path.join(OUTPUT_DIR, "images", "train", seq_name)
         os.makedirs(img_dir, exist_ok=True)
 
@@ -286,4 +302,118 @@ def generate_dataset():
                 dist += CAM_DIST_STEP
             rot += ROT_STEP
 
+from bpy_extras.object_utils import world_to_camera_view
+
+def get_yolo_bbox(scene, cam, obj):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    obj_eval = obj.evaluated_get(depsgraph)
+    mesh = obj_eval.to_mesh()
+
+    coords_2d = []
+
+    for v in mesh.vertices:
+        co_world = obj.matrix_world @ v.co
+        co_ndc = world_to_camera_view(scene, cam, co_world)
+
+        if 0.0 <= co_ndc.z <= 1.0:
+            coords_2d.append((co_ndc.x, co_ndc.y))
+
+    obj_eval.to_mesh_clear()
+
+    if not coords_2d:
+        return None
+
+    xs = [c[0] for c in coords_2d]
+    ys = [c[1] for c in coords_2d]
+
+    min_x = max(min(xs), 0)
+    max_x = min(max(xs), 1)
+    min_y = max(min(ys), 0)
+    max_y = min(max(ys), 1)
+
+    cx = (min_x + max_x) / 2
+    cy = (min_y + max_y) / 2
+    w = max_x - min_x
+    h = max_y - min_y
+
+    return cx, cy, w, h
+
+def save_yolo_label(filepath, class_id, bbox):
+    label_path = filepath.replace("images", "labels").replace(".png", ".txt")
+    os.makedirs(os.path.dirname(label_path), exist_ok=True)
+
+    with open(label_path, "w") as f:
+        f.write(f"{class_id} {bbox[0]} {bbox[1]} {bbox[2]} {bbox[3]}")
+
+
+import shutil
+
+def split_dataset(train_ratio=0.7, val_ratio=0.2):
+    base_images = os.path.join(OUTPUT_DIR, "images", "train")
+    base_labels = os.path.join(OUTPUT_DIR, "labels", "train")
+
+    classes = os.listdir(base_images)
+
+    for cls in classes:
+        cls_img_dir = os.path.join(base_images, cls)
+        cls_lbl_dir = os.path.join(base_labels, cls)
+
+        images = [
+            os.path.join(cls_img_dir, f)
+            for f in os.listdir(cls_img_dir)
+            if f.endswith(".png")
+        ]
+
+        random.shuffle(images)
+
+        total = len(images)
+        train_end = int(total * train_ratio)
+        val_end = int(total * (train_ratio + val_ratio))
+
+        splits = {
+            "train": images[:train_end],
+            "val": images[train_end:val_end],
+            "test": images[val_end:]
+        }
+
+        for split_name, split_files in splits.items():
+            for img_path in split_files:
+                filename = os.path.basename(img_path)
+                label_path = os.path.join(cls_lbl_dir, filename.replace(".png", ".txt"))
+
+                new_img = os.path.join(
+                    OUTPUT_DIR, "images", split_name, cls, filename
+                )
+                new_lbl = os.path.join(
+                    OUTPUT_DIR, "labels", split_name, cls, filename.replace(".png", ".txt")
+                )
+
+                os.makedirs(os.path.dirname(new_img), exist_ok=True)
+                os.makedirs(os.path.dirname(new_lbl), exist_ok=True)
+
+                if os.path.exists(img_path):
+                    shutil.move(img_path, new_img)
+
+                if os.path.exists(label_path):
+                    shutil.move(label_path, new_lbl)
+
+def create_data_yaml():
+    yaml_path = os.path.join(OUTPUT_DIR, "data.yaml")
+    with open(yaml_path, "w") as f:
+        f.write(f"""
+path: {OUTPUT_DIR}
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: "00"
+  1: "01"
+  2: "10"
+  3: "11"
+""")
+
+
 generate_dataset()
+split_dataset()
+create_data_yaml()
