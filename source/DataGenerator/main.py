@@ -14,6 +14,12 @@ LIGHT_COLOR_MAX = (1.0, 1.0, 1.0)
 LIGHT_SIZE_MIN = 0.05
 LIGHT_SIZE_MAX = 0.3
 
+TILT_X_MIN = -5
+TILT_X_MAX = 5
+
+TILT_Y_MIN = -5
+TILT_Y_MAX = 5
+
 BASE_DIR = os.path.dirname(bpy.data.filepath)
 if BASE_DIR == "":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -221,8 +227,13 @@ def get_camera_view_size(scene, cam, distance):
     return view_width, view_height
 
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath):
-    obj.rotation_euler[2] = math.radians(rotation_z)
 
+    # losowy mały tilt X/Y
+    tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
+    tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
+
+    obj.rotation_euler[0] = math.radians(tilt_x)
+    obj.rotation_euler[1] = math.radians(tilt_y)
     obj.rotation_euler[2] = math.radians(rotation_z)
 
     # wymuś update transformacji
