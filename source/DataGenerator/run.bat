@@ -1,6 +1,9 @@
-docker run --rm `
-  -v ${PWD}:/app `
-  linuxserver/blender  `
-  blender --background --python /app/main.py
+@echo off
 
-Write-Host "Dataset generated."
+docker run --rm ^
+  -v %cd%:/app ^
+  linuxserver/blender ^
+  --background --python /app/main.py
+
+echo Dataset generated.
+pause
