@@ -1,3 +1,6 @@
-@echo off
-"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe" --background --python main.py
-pause
+docker run --rm `
+  -v ${PWD}:/app `
+  linuxserver/blender  `
+  blender --background --python /app/main.py
+
+Write-Host "Dataset generated."
