@@ -29,13 +29,13 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 OFFSET = 0.002
 
-ROT_MIN = -15
-ROT_MAX = -10
+ROT_MIN = -30
+ROT_MAX = 30
 ROT_STEP = 5
 
-CAM_DIST_MIN = 0.40
-CAM_DIST_MAX = 0.50
-CAM_DIST_STEP = 0.05
+CAM_DIST_MIN = 0.35
+CAM_DIST_MAX = 1.0
+CAM_DIST_STEP = 0.02
 
 CLASS_MAP = {
     "00": 0,
@@ -327,7 +327,7 @@ def get_yolo_bbox(scene, cam, obj):
         co_ndc = world_to_camera_view(scene, cam, co_world)
 
         if 0.0 <= co_ndc.z <= 1.0:
-            coords_2d.append((co_ndc.x, co_ndc.y))
+            coords_2d.append((co_ndc.x, 1 - co_ndc.y))
 
     obj_eval.to_mesh_clear()
 
@@ -393,10 +393,10 @@ def split_dataset(train_ratio=0.7, val_ratio=0.2):
                 label_path = os.path.join(cls_lbl_dir, filename.replace(".png", ".txt"))
 
                 new_img = os.path.join(
-                    OUTPUT_DIR, "images", split_name, cls, filename
+                    OUTPUT_DIR, "images", split_name, filename
                 )
                 new_lbl = os.path.join(
-                    OUTPUT_DIR, "labels", split_name, cls, filename.replace(".png", ".txt")
+                    OUTPUT_DIR, "labels", split_name, filename.replace(".png", ".txt")
                 )
 
                 os.makedirs(os.path.dirname(new_img), exist_ok=True)
@@ -423,7 +423,6 @@ names:
   2: "10"
   3: "11"
 """)
-
 
 generate_dataset()
 split_dataset()
