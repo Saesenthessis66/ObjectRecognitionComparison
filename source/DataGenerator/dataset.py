@@ -1,0 +1,270 @@
+import bpy
+import os
+import math
+import random
+import shutil
+from itertools import product
+from collections import defaultdict
+
+from bpy_extras.object_utils import world_to_camera_view
+
+from constants import *
+from setup import (
+    setup_scene,
+    configure_render_engine,
+    setup_camera_light,
+    create_materials,
+    set_random_background,
+    create_object,
+    get_object_size_xy,
+    get_camera_view_size,
+)
+
+
+def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
+
+    tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
+    tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
+
+    obj.rotation_euler[0] = math.radians(tilt_x)
+    obj.rotation_euler[1] = math.radians(tilt_y)
+    obj.rotation_euler[2] = math.radians(rotation_z)
+
+    bpy.context.view_layer.update()
+
+    view_w, view_h = get_camera_view_size(scene, cam, cam_dist)
+    obj_w, obj_h = get_object_size_xy(obj)
+
+    overflow_ratio = 0.00
+
+    max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
+    max_offset_y = (view_h - obj_h) / 2 + obj_h * overflow_ratio
+
+    offset_x = random.uniform(-max_offset_x, max_offset_x)
+    offset_y = random.uniform(-max_offset_y, max_offset_y)
+
+    obj.location.x += offset_x
+    obj.location.z += offset_y
+
+    cam.location = (0, -cam_dist, 0)
+    cam.rotation_euler = (math.radians(90), 0, 0)
+
+    scene.cycles.samples = random.randint(16, 64)
+    scene.view_settings.exposure = random.uniform(-0.5, 0.5)
+    scene.cycles.use_denoising = False
+
+    scene.render.filepath = filepath
+
+    bbox = get_yolo_bbox(scene, cam, obj)
+
+    bpy.ops.render.render(write_still=True)
+
+    if bbox is not None:
+        save_yolo_label(scene.render.filepath, class_id, bbox)
+
+
+
+def get_yolo_bbox(scene, cam, obj):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    obj_eval = obj.evaluated_get(depsgraph)
+    mesh = obj_eval.to_mesh()
+
+    coords_2d = []
+
+    for v in mesh.vertices:
+        co_world = obj.matrix_world @ v.co
+        co_ndc = world_to_camera_view(scene, cam, co_world)
+
+        if 0.0 <= co_ndc.z <= 1.0:
+            coords_2d.append((co_ndc.x, 1 - co_ndc.y))
+
+    obj_eval.to_mesh_clear()
+
+    if not coords_2d:
+        return None
+
+    xs = [c[0] for c in coords_2d]
+    ys = [c[1] for c in coords_2d]
+
+    min_x = max(min(xs), 0)
+    max_x = min(max(xs), 1)
+    min_y = max(min(ys), 0)
+    max_y = min(max(ys), 1)
+
+    cx = (min_x + max_x) / 2
+    cy = (min_y + max_y) / 2
+    w = max_x - min_x
+    h = max_y - min_y
+
+    return cx, cy, w, h
+
+
+def save_yolo_label(filepath, class_id, bbox):
+    label_path = filepath.replace("images", "labels").replace(".png", ".txt")
+    os.makedirs(os.path.dirname(label_path), exist_ok=True)
+
+    with open(label_path, "w") as f:
+        f.write(f"{class_id} {bbox[0]} {bbox[1]} {bbox[2]} {bbox[3]}")
+
+
+def generate_dataset():
+    scene = bpy.context.scene
+
+    configure_render_engine(scene)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    materials = create_materials()
+
+    for bits in product([0, 1], repeat=2):
+        seq_name = f"{bits[0]}{bits[1]}"
+        class_id = CLASS_MAP[seq_name]
+
+        img_dir = os.path.join(OUTPUT_DIR, "images", "train")
+        os.makedirs(img_dir, exist_ok=True)
+
+        idx = 0
+
+        setup_scene()
+        cam, light = setup_camera_light(scene)
+
+        rot = ROT_MIN
+
+        obj = create_object(materials, bits)
+
+        while rot <= ROT_MAX:
+
+            dist = CAM_DIST_MIN
+            while dist <= CAM_DIST_MAX:
+
+                obj.location = (0,0,0)
+                obj.rotation_euler = (0,0,0)
+
+                filename = f"img_{seq_name}_{idx:05d}_rot_{rot}_dist_{dist:.2f}.png"
+                filepath = os.path.join(img_dir, filename)
+
+                light.data.energy = random.uniform(LIGHT_ENERGY_MIN, LIGHT_ENERGY_MAX)
+
+                light.data.color = (
+                    random.uniform(LIGHT_COLOR_MIN[0], LIGHT_COLOR_MAX[0]),
+                    random.uniform(LIGHT_COLOR_MIN[1], LIGHT_COLOR_MAX[1]),
+                    random.uniform(LIGHT_COLOR_MIN[2], LIGHT_COLOR_MAX[2]),
+                )
+
+                light.data.size = random.uniform(LIGHT_SIZE_MIN, LIGHT_SIZE_MAX)
+
+                set_random_background(scene)
+
+                render_sample(
+                    scene,
+                    cam,
+                    obj,
+                    rot,
+                    dist,
+                    filepath,
+                    class_id,
+                    light,
+                )
+
+                idx += 1
+                dist += CAM_DIST_STEP
+
+            rot += ROT_STEP
+
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def split_dataset(train_ratio=0.7, val_ratio=0.2):
+    images_root = os.path.join(OUTPUT_DIR, "images")
+    labels_root = os.path.join(OUTPUT_DIR, "labels")
+
+    train_dir = os.path.join(images_root, "train")
+    val_dir = os.path.join(images_root, "val")
+    test_dir = os.path.join(images_root, "test")
+
+    label_train_dir = os.path.join(labels_root, "train")
+    label_val_dir = os.path.join(labels_root, "val")
+    label_test_dir = os.path.join(labels_root, "test")
+
+    for d in [val_dir, test_dir, label_val_dir, label_test_dir]:
+        if os.path.exists(d):
+            shutil.rmtree(d)
+        os.makedirs(d, exist_ok=True)
+
+    class_files = defaultdict(list)
+
+    for filename in os.listdir(train_dir):
+
+        if not filename.endswith(".png"):
+            continue
+
+        parts = filename.split("_")
+
+        if len(parts) < 3:
+            continue
+
+        class_name = parts[1]
+        class_files[class_name].append(filename)
+
+    for class_name, files in class_files.items():
+
+        random.shuffle(files)
+
+        total = len(files)
+
+        train_count = int(total * train_ratio)
+        val_count = int(total * val_ratio)
+        test_count = total - train_count - val_count
+
+        train_files = files[:train_count]
+        val_files = files[train_count:train_count + val_count]
+        test_files = files[train_count + val_count:]
+
+        for split_name, split_files, img_dst, lbl_dst in [
+
+            ("train", train_files, train_dir, label_train_dir),
+            ("val", val_files, val_dir, label_val_dir),
+            ("test", test_files, test_dir, label_test_dir),
+
+        ]:
+
+            os.makedirs(img_dst, exist_ok=True)
+            os.makedirs(lbl_dst, exist_ok=True)
+
+            for file in split_files:
+
+                src_img = os.path.join(train_dir, file)
+                dst_img = os.path.join(img_dst, file)
+
+                label_file = file.replace(".png", ".txt")
+
+                src_lbl = os.path.join(label_train_dir, label_file)
+                dst_lbl = os.path.join(lbl_dst, label_file)
+
+                if split_name != "train":
+
+                    shutil.move(src_img, dst_img)
+
+                    if os.path.exists(src_lbl):
+                        shutil.move(src_lbl, dst_lbl)
+
+    print("Dataset successfully split per class.")
+
+
+def create_data_yaml():
+
+    yaml_path = os.path.join(OUTPUT_DIR, "data.yaml")
+
+    with open(yaml_path, "w") as f:
+        f.write(f"""
+path: {OUTPUT_DIR}
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: "00"
+  1: "01"
+  2: "10"
+  3: "11"
+""")
