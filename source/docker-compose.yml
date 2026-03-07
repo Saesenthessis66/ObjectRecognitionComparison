@@ -18,6 +18,7 @@ services:
       dockerfile: dockerfile.model
     volumes:
       - ./workspace:/workspace
+      - ./ModelGenerator:/app/ModelGenerator
     depends_on:
       - generator
     deploy:

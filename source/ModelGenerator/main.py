@@ -2,7 +2,6 @@ from ultralytics import YOLO
 import torch
 import os
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_YAML = "/workspace/preview/data.yaml"
 
 IMG_SIZE = 320
@@ -35,7 +34,7 @@ def main():
         lr0=0.001,
         cos_lr=True,
         patience=20,
-        workers=4,
+        workers=0,
 
         mosaic=0.0,
         mixup=0.0,
