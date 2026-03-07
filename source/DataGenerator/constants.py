@@ -54,4 +54,4 @@ BASE_DIR = os.path.dirname(bpy.data.filepath)
 if BASE_DIR == "":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-OUTPUT_DIR = os.path.join(BASE_DIR, "preview")  # Root output directory
+OUTPUT_DIR = "/workspace/preview"

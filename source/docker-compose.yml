@@ -1,0 +1,27 @@
+services:
+
+  generator:
+    build:
+      context: .
+      dockerfile: dockerfile.generator
+    volumes:
+      - ./workspace:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+  trainer:
+    build:
+      context: .
+      dockerfile: dockerfile.model
+    volumes:
+      - ./workspace:/workspace
+    depends_on:
+      - generator
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]

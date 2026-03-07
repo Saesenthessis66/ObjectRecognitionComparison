@@ -2,3 +2,4 @@ venv
 source/DataGenerator/preview
 source/DataGenerator/__pycache__
 source/ModelGenerator/blocks_detector/
+source/workspace
