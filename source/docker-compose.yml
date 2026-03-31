@@ -5,7 +5,10 @@ services:
       context: .
       dockerfile: dockerfile.generator
     volumes:
-      - ./workspace:/workspace
+      - ./DataGenerator:/app/DataGenerator       
+      - ./workspace:/workspace                  
+    working_dir: /app/DataGenerator
+    command: ["blender", "--background", "--python", "main.py"]
     deploy:
       resources:
         reservations:
@@ -17,12 +20,8 @@ services:
       context: .
       dockerfile: dockerfile.model
     volumes:
-      - ./workspace:/workspace
-      - ./ModelGenerator:/app/ModelGenerator
-    depends_on:
-      - generator
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+      - ./ModelGenerator:/app/ModelGenerator    
+      - ./workspace:/workspace                 
+    working_dir: /app/ModelGenerator
+    command: ["python", "main.py"]
+    gpus: all

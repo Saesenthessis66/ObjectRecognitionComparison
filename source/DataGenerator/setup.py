@@ -67,7 +67,7 @@ def create_materials():
     return {
         "GREEN": create_material((0, 1, 0)),
         "WHITE": create_material((1, 1, 1)),
-        "BLACK": create_material((0, 0, 0)),
+        "BLACK": create_material((0.02, 0.02, 0.02)),
         "TRANSPARENT": create_transparent_material(),
     }
 
@@ -165,7 +165,7 @@ def create_object(materials, bits):
 
     # Map bit values to materials
     bit_material = {
-        0: materials["TRANSPARENT"],
+        0: materials["BLACK"],
         1: materials["WHITE"]
     }
 
@@ -178,6 +178,8 @@ def create_object(materials, bits):
         bpy.ops.mesh.primitive_cube_add(size=1)
         o = bpy.context.object
         o.location = location
+        if material == materials["BLACK"]:
+            scale = (scale[0], scale[1] * 0.05, scale[2])  
         o.scale = scale
         o.data.materials.append(material)
         obj_list.append(o)

@@ -1,2 +1,4 @@
 source/workspace
 source/ModelGenerator/runs
+source/ModelGenerator/yolov8n.pt
+source/DataGenerator/__pycache__

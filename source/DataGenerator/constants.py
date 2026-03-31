@@ -27,14 +27,14 @@ ROT_STEP = 5
 
 # --- Camera distance ---
 CAM_DIST_MIN = 0.4
-CAM_DIST_MAX = 0.45
+CAM_DIST_MAX = 0.7
 CAM_DIST_STEP = 0.05
 
 # Class mapping (string -> YOLO class ID)
 CLASS_MAP = {
     "00": 0,
-    "01": 1,
-    "10": 2,
+    "10": 1,
+    "01": 2,
     "11": 3,
 }
 
