@@ -25,3 +25,12 @@ services:
     working_dir: /app/ModelGenerator
     command: ["python", "main.py"]
     gpus: all
+
+  clean:
+    image: ubuntu:22.04   
+    volumes:
+      - ./workspace:/workspace
+      - ./ModelGenerator:/app/ModelGenerator
+      - ./clean.sh:/clean.sh  
+    entrypoint: ["/bin/bash", "/clean.sh"]
+    command: []

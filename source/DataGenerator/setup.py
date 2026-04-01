@@ -67,7 +67,7 @@ def create_materials():
     return {
         "GREEN": create_material((0, 1, 0)),
         "WHITE": create_material((1, 1, 1)),
-        "BLACK": create_material((0.02, 0.02, 0.02)),
+        "BLACK": create_material((0.01, 0.01, 0.01)),
         "TRANSPARENT": create_transparent_material(),
     }
 
