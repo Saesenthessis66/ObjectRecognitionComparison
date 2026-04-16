@@ -20,6 +20,36 @@ from setup import (
     get_camera_view_size,
 )
 
+def export_to_dae(obj, path):
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+    # Ustaw origin (ważne dla Gazebo)
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+
+    # Apply transformacje
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+
+    bpy.ops.wm.collada_export(
+        filepath=path,
+        apply_modifiers=True,
+        selected=True
+    )
+
+
+def export_all_markers(materials):
+    dae_dir = os.path.join(OUTPUT_DIR, "dae")
+    os.makedirs(dae_dir, exist_ok=True)
+
+    for bits in product([0, 1], repeat=2):
+        setup_scene()
+        obj = create_object(materials, bits)
+
+        name = f"{bits[0]}{bits[1]}"
+        path = os.path.join(dae_dir, f"marker_{name}.dae")
+
+        export_to_dae(obj, path)
 
 # Render single dataset sample with random rotation, tilt, lighting and camera distance
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
@@ -137,6 +167,8 @@ def generate_dataset():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     materials = create_materials()
+
+    export_all_markers(materials)
 
     # Generate all bit combinations (00, 01, 10, 11)
     for bits in product([0, 1], repeat=2):

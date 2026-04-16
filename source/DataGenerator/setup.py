@@ -179,7 +179,8 @@ def create_object(materials, bits):
         o = bpy.context.object
         o.location = location
         if material == materials["BLACK"]:
-            scale = (scale[0], scale[1] * 0.05, scale[2])  
+            scale = (scale[0], scale[1] * 0.05, scale[2]) 
+            o.location.y += (o.location.x)
         o.scale = scale
         o.data.materials.append(material)
         obj_list.append(o)
