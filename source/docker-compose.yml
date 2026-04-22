@@ -25,6 +25,7 @@ services:
     working_dir: /app/ModelGenerator
     command: ["python", "main.py"]
     gpus: all
+    shm_size: "8gb"
 
   clean:
     image: ubuntu:22.04   

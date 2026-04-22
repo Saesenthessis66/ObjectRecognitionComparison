@@ -1,6 +1,8 @@
 from ultralytics import YOLO
 import torch
 import os
+import pandas as pd
+import glob
 
 DATA_YAML = "/workspace/preview/data.yaml"
 
@@ -11,6 +13,51 @@ BATCH_SIZE = 64
 PROJECT_NAME = "blocks_detector"
 RUN_NAME = "yolov8n_320_noaug"
 
+
+def export_data(run_dir, data_yaml):
+
+    csv_path = os.path.join(run_dir, "results.csv") 
+    if not os.path.exists(csv_path): 
+        print("results.csv not found!") 
+        return
+    
+    df = pd.read_csv(csv_path, encoding="latin1") 
+    df.to_csv(os.path.join(run_dir, "results_utf8.csv"), encoding="utf-8", index=False)
+
+    weights = sorted(glob.glob(os.path.join(run_dir, "weights", "epoch*.pt")))
+
+    if not weights:
+        print("No epoch weights found!")
+        return
+
+    all_rows = []
+
+    for w in weights:
+        model = YOLO(w)
+        metrics = model.val(data=data_yaml, verbose=False)
+
+        maps = metrics.box.maps
+        prec = metrics.box.p
+        rec = metrics.box.r
+
+        for i, class_name in model.names.items():
+            all_rows.append({
+                "epoch": int(os.path.basename(w).split("epoch")[1].split(".")[0]),
+                "class": class_name,
+                "precision": prec[i] if i < len(prec) else None,
+                "recall": rec[i] if i < len(rec) else None,
+                "mAP50-95": maps[i] if i < len(maps) else None,
+            })
+
+    df = pd.DataFrame(all_rows)
+
+    output_path = os.path.join(run_dir, "per_class_per_epoch.xlsx")
+
+    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+        for cls in df["class"].unique():
+            df[df["class"] == cls].to_excel(writer, sheet_name=str(cls)[:31], index=False)
+
+    print(f"Saved: {output_path}")
 
 def main():
     device = 0 if torch.cuda.is_available() else "cpu"
@@ -36,6 +83,8 @@ def main():
         patience=20,
         workers=0,
 
+        save_period=1,
+
         mosaic=0.0,
         mixup=0.0,
         copy_paste=0.0,
@@ -54,6 +103,9 @@ def main():
         auto_augment=None,
         close_mosaic=0
     )
+    run_dir = str(results.save_dir)
+
+    export_data(run_dir, data_yaml_abs)
 
 
 if __name__ == "__main__":

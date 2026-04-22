@@ -70,7 +70,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
     # Compute projected object size
     obj_w, obj_h = get_object_size_xy(obj)
 
-    overflow_ratio = 0.00
+    overflow_ratio = -0.05
 
     # Maximum random translation while keeping object inside frame
     max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
