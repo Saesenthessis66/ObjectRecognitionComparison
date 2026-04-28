@@ -42,11 +42,11 @@ def export_all_markers(materials):
     dae_dir = os.path.join(OUTPUT_DIR, "dae")
     os.makedirs(dae_dir, exist_ok=True)
 
-    for bits in product([0, 1], repeat=2):
+    for bits in product([0, 1], repeat=4):
         setup_scene()
         obj = create_object(materials, bits)
 
-        name = f"{bits[0]}{bits[1]}"
+        name = f"{bits[0]}{bits[1]}{bits[2]}{bits[3]}"
         path = os.path.join(dae_dir, f"marker_{name}.dae")
 
         export_to_dae(obj, path)
@@ -70,7 +70,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
     # Compute projected object size
     obj_w, obj_h = get_object_size_xy(obj)
 
-    overflow_ratio = -0.05
+    overflow_ratio = -0.1
 
     # Maximum random translation while keeping object inside frame
     max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
@@ -170,9 +170,9 @@ def generate_dataset():
 
     export_all_markers(materials)
 
-    # Generate all bit combinations (00, 01, 10, 11)
-    for bits in product([0, 1], repeat=2):
-        seq_name = f"{bits[0]}{bits[1]}"
+    # Generate all bit combinations (16 classes for 4 bits)
+    for bits in product([0, 1], repeat=4):
+        seq_name = f"{bits[0]}{bits[1]}{bits[2]}{bits[3]}"
         class_id = CLASS_MAP[seq_name]
 
         img_dir = os.path.join(OUTPUT_DIR, "images", "train")
@@ -330,8 +330,20 @@ val: images/val
 test: images/test
 
 names:
-  0: "00"
-  1: "01"
-  2: "10"
-  3: "11"
+  0: "0000"
+  1: "0001"
+  2: "0010"
+  3: "0011"
+  4: "0100"
+  5: "0101"
+  6: "0110"
+  7: "0111"
+  8: "1000"
+  9: "1001"
+  10: "1010"
+  11: "1011"
+  12: "1100"
+  13: "1101"
+  14: "1110"
+  15: "1111"
 """)

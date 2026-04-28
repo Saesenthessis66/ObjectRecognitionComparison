@@ -21,22 +21,35 @@ TILT_Y_MAX = 5
 OFFSET = 0.002
 
 # Rotation for dataset variation 
-ROT_MIN = -10
-ROT_MAX = 10
+ROT_MIN = 0
+ROT_MAX = 0
 ROT_STEP = 5
 
 # --- Camera distance ---
-CAM_DIST_MIN = 0.4
+CAM_DIST_MIN = 0.6
 CAM_DIST_MAX = 0.60
 CAM_DIST_STEP = 0.05
 
 # Class mapping (string -> YOLO class ID)
 CLASS_MAP = {
-    "00": 0,
-    "10": 1,
-    "01": 2,
-    "11": 3,
+    "0000": 0,
+    "0001": 1,
+    "0010": 2,
+    "0011": 3,
+    "0100": 4,
+    "0101": 5,
+    "0110": 6,
+    "0111": 7,
+    "1000": 8,
+    "1001": 9,
+    "1010": 10,
+    "1011": 11,
+    "1100": 12,
+    "1101": 13,
+    "1110": 14,
+    "1111": 15
 }
+
 
 # Background types to randomly choose from
 BACKGROUND_TYPES = [

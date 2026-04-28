@@ -171,7 +171,8 @@ def create_object(materials, bits):
 
     pos = []
     pos.append(OFFSET / 2 + 0.05 / 2)
-    pos.append(pos[0] + 0.05 / 2 + 0.07 / 2 + OFFSET)
+    pos.append(pos[0] + 0.05 / 2 + 0.05 / 2 + OFFSET)
+    pos.append(pos[1] + 0.05 / 2 + 0.07 / 2 + OFFSET)
 
     # Helper function to create cube
     def add_cube(location, scale, material):
@@ -186,12 +187,14 @@ def create_object(materials, bits):
         obj_list.append(o)
 
     # Right side bits
-    add_cube((pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[0]])
-    add_cube((pos[1], 0, 0), (0.07, 0.05, 0.05), materials["GREEN"])
+    add_cube((pos[0], 0, 0.05 + OFFSET), (0.05, 0.05, 0.05), bit_material[bits[2]])
+    add_cube((pos[1], 0, 0.05 + OFFSET), (0.05, 0.05, 0.05), bit_material[bits[3]])
+    add_cube((pos[2], 0, 0.05 + OFFSET), (0.07, 0.05, 0.05), materials["GREEN"])
 
     # Left side bits
-    add_cube((-pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[1]])
-    add_cube((-pos[1], 0, 0), (0.07, 0.05, 0.05), materials["GREEN"])
+    add_cube((-pos[0], 0, 0.05 + OFFSET), (0.05, 0.05, 0.05), bit_material[bits[1]])
+    add_cube((-pos[1], 0, 0.05 + OFFSET), (0.05, 0.05, 0.05), bit_material[bits[0]])
+    add_cube((-pos[2], 0, 0.05 + OFFSET), (0.07, 0.05, 0.05), materials["GREEN"])
 
     # Join all cubes into single object
     bpy.ops.object.select_all(action='DESELECT')
