@@ -186,11 +186,11 @@ def create_object(materials, bits):
         obj_list.append(o)
 
     # Right side bits
-    add_cube((pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[0]])
+    add_cube((pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[1]])
     add_cube((pos[1], 0, 0), (0.07, 0.05, 0.05), materials["GREEN"])
 
     # Left side bits
-    add_cube((-pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[1]])
+    add_cube((-pos[0], 0, 0), (0.05, 0.05, 0.05), bit_material[bits[0]])
     add_cube((-pos[1], 0, 0), (0.07, 0.05, 0.05), materials["GREEN"])
 
     # Join all cubes into single object

@@ -33,8 +33,8 @@ CAM_DIST_STEP = 0.05
 # Class mapping (string -> YOLO class ID)
 CLASS_MAP = {
     "00": 0,
-    "10": 1,
-    "01": 2,
+    "01": 1,
+    "10": 2,
     "11": 3,
 }
 
