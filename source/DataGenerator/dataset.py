@@ -335,3 +335,116 @@ names:
   2: "10"
   3: "11"
 """)
+
+def generate_eval_datasets():
+    scene = bpy.context.scene
+    configure_render_engine(scene)
+
+    base_dir = os.path.join(OUTPUT_DIR, "eval")
+    dist_dir = os.path.join(base_dir, "distance")
+    rot_dir = os.path.join(base_dir, "rotation")
+
+    os.makedirs(dist_dir, exist_ok=True)
+    os.makedirs(rot_dir, exist_ok=True)
+
+    materials = create_materials()
+
+    # =========================
+    # DISTANCE DATASET
+    # =========================
+    for bits in product([0, 1], repeat=2):
+        seq_name = f"{bits[0]}{bits[1]}"
+        class_id = CLASS_MAP[seq_name]
+
+        setup_scene()
+        cam, light = setup_camera_light(scene)
+
+        obj = create_object(materials, bits)
+
+        # fixed conditions
+        light.data.energy = EVAL_LIGHT_ENERGY
+        light.data.color = EVAL_LIGHT_COLOR
+        light.data.size = EVAL_LIGHT_SIZE
+        scene.world.use_nodes = False
+
+        dist = EVAL_DIST_MIN
+        idx = 0
+
+        while dist <= EVAL_DIST_MAX:
+
+            obj.location = (0, 0, 0)
+            obj.rotation_euler = (
+                math.radians(EVAL_TILT_X),
+                math.radians(EVAL_TILT_Y),
+                math.radians(EVAL_DIST_ROT),
+            )
+
+            cam.location = (0, -dist, 0)
+            cam.rotation_euler = (math.radians(90), 0, 0)
+
+            filename = f"{seq_name}_dist_{dist:.2f}_{idx:04d}.png"
+            filepath = os.path.join(dist_dir, filename)
+
+            bbox = get_yolo_bbox(scene, cam, obj)
+
+            scene.render.filepath = filepath
+            bpy.ops.render.render(write_still=True)
+
+            if bbox:
+                save_yolo_label(filepath, class_id, bbox)
+
+            dist += EVAL_DIST_STEP
+            idx += 1
+
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    # =========================
+    # ROTATION DATASET
+    # =========================
+    for bits in product([0, 1], repeat=2):
+        seq_name = f"{bits[0]}{bits[1]}"
+        class_id = CLASS_MAP[seq_name]
+
+        setup_scene()
+        cam, light = setup_camera_light(scene)
+
+        obj = create_object(materials, bits)
+
+        # fixed conditions
+        light.data.energy = EVAL_LIGHT_ENERGY
+        light.data.color = EVAL_LIGHT_COLOR
+        light.data.size = EVAL_LIGHT_SIZE
+        scene.world.use_nodes = False
+
+        rot = EVAL_ROT_MIN
+        idx = 0
+
+        while rot <= EVAL_ROT_MAX:
+
+            obj.location = (0, 0, 0)
+            obj.rotation_euler = (
+                math.radians(EVAL_TILT_X),
+                math.radians(EVAL_TILT_Y),
+                math.radians(rot),
+            )
+
+            cam.location = (0, -EVAL_ROT_DIST, 0)
+            cam.rotation_euler = (math.radians(90), 0, 0)
+
+            filename = f"{seq_name}_rot_{rot}_{idx:04d}.png"
+            filepath = os.path.join(rot_dir, filename)
+
+            bbox = get_yolo_bbox(scene, cam, obj)
+
+            scene.render.filepath = filepath
+            bpy.ops.render.render(write_still=True)
+
+            if bbox:
+                save_yolo_label(filepath, class_id, bbox)
+
+            rot += EVAL_ROT_STEP
+            idx += 1
+
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    print("Evaluation datasets generated.")

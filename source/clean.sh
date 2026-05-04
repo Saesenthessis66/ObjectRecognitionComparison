@@ -34,6 +34,7 @@ if [ "$CLEAR_MODEL" = true ]; then
     echo "Clearing model in $MODEL_DIR ..."
     rm -rf "$MODEL_DIR/runs"/*
     rm -rf "$MODEL_DIR/yolo*" 
+    rm -rf "$MODEL_DIR/eval_results"/* 
 fi
 
 echo "Done."

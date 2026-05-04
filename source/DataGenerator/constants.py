@@ -21,8 +21,8 @@ TILT_Y_MAX = 5
 OFFSET = 0.002
 
 # Rotation for dataset variation 
-ROT_MIN = -10
-ROT_MAX = 10
+ROT_MIN = -20
+ROT_MAX = 20
 ROT_STEP = 5
 
 # --- Camera distance ---
@@ -55,3 +55,22 @@ if BASE_DIR == "":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 OUTPUT_DIR = "/workspace/preview"
+
+# EVAL: DISTANCE TEST
+EVAL_DIST_MIN = 0.9
+EVAL_DIST_MAX = 1.0
+EVAL_DIST_STEP = 0.05
+EVAL_DIST_ROT = 0  # fixed rotation
+
+# EVAL: ROTATION TEST
+EVAL_ROT_MIN = -5
+EVAL_ROT_MAX = 0
+EVAL_ROT_STEP = 5
+EVAL_ROT_DIST = 0.5  # fixed distance
+
+# Disable randomness
+EVAL_TILT_X = 0
+EVAL_TILT_Y = 0
+EVAL_LIGHT_ENERGY = 20
+EVAL_LIGHT_COLOR = (1, 1, 1)
+EVAL_LIGHT_SIZE = 0.15
