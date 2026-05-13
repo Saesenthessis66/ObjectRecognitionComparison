@@ -1,0 +1,9 @@
+opencv-python
+pyyaml
+numpy<2
+pandas
+openpyxl
+matplotlib
+seaborn
+tensorboard
+Pillow==9.5.0

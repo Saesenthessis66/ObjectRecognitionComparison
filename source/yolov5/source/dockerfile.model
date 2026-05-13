@@ -1,0 +1,32 @@
+FROM pytorch/pytorch:2.2.0-cuda11.8-cudnn8-runtime
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y \
+    git \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libxcb1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps
+COPY ModelGenerator/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy your code
+COPY ModelGenerator /app/ModelGenerator
+
+# YOLOv5 will be mounted as volume → install later safely
+WORKDIR /app/yolov5
+RUN pip install --no-cache-dir -r requirements.txt || true
+
+# Add pipeline script
+COPY ModelGenerator/pipeline.sh /app/pipeline.sh
+RUN chmod +x /app/pipeline.sh
+
+# Default run = full pipeline
+CMD ["/app/pipeline.sh"]

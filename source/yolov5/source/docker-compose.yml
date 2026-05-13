@@ -1,0 +1,39 @@
+services:
+
+  generator:
+    build:
+      context: .
+      dockerfile: dockerfile.generator
+    volumes:
+      - ./DataGenerator:/app/DataGenerator       
+      - ./workspace:/workspace                  
+    working_dir: /app/DataGenerator
+    command: ["blender", "--background", "--python", "main.py"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+  trainer:
+    build:
+      context: .
+      dockerfile: dockerfile.model
+    volumes:
+      - ./ModelGenerator:/app/ModelGenerator
+      - ./workspace:/workspace
+      - ./yolov5:/app/yolov5  
+      - ./fonts:/root/.config/Ultralytics
+    working_dir: /app/yolov5   
+    gpus: all
+    shm_size: "8gb"
+
+  clean:
+    image: ubuntu:22.04   
+    volumes:
+      - ./workspace:/workspace
+      - ./ModelGenerator:/app/ModelGenerator
+      - ./yolov5:/app/yolov5
+      - ./clean.sh:/clean.sh  
+    entrypoint: ["/bin/bash", "/clean.sh"]
+    command: []
