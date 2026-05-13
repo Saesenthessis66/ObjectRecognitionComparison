@@ -6,8 +6,7 @@ IMG_SIZE = 320
 EPOCHS = 80
 BATCH_SIZE = 64
 
-PROJECT_NAME = "blocks_detector"
-RUN_NAME = "yolov8n_320_noaug"
+RUN_NAME = "yolov5n_320_noaug"
 
 DEVICE = 0 if torch.cuda.is_available() else "cpu"
 

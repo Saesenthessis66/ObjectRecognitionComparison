@@ -20,10 +20,11 @@ services:
       context: .
       dockerfile: dockerfile.model
     volumes:
-      - ./ModelGenerator:/app/ModelGenerator    
-      - ./workspace:/workspace                 
-    working_dir: /app/ModelGenerator
-    command: ["python", "main.py"]
+      - ./ModelGenerator:/app/ModelGenerator
+      - ./workspace:/workspace
+      - ./yolov5:/app/yolov5  
+      - ./fonts:/root/.config/Ultralytics
+    working_dir: /app/yolov5   
     gpus: all
     shm_size: "8gb"
 
@@ -32,6 +33,7 @@ services:
     volumes:
       - ./workspace:/workspace
       - ./ModelGenerator:/app/ModelGenerator
+      - ./yolov5:/app/yolov5
       - ./clean.sh:/clean.sh  
     entrypoint: ["/bin/bash", "/clean.sh"]
     command: []

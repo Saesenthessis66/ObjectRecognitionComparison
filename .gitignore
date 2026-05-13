@@ -2,3 +2,6 @@ source/workspace
 source/ModelGenerator/runs
 source/ModelGenerator/yolov8n.pt
 source/DataGenerator/__pycache__
+*.pyc
+source/yolov5/quantize_result
+source/yolov5/compiled_model

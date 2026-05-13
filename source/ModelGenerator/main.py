@@ -1,34 +1,39 @@
-from ultralytics import YOLO
 import os
 
-from config import DEVICE, DATA_YAML, IMG_SIZE, EPOCHS, BATCH_SIZE, PROJECT_NAME, RUN_NAME, TRAIN_ARGS
+from config import DATA_YAML, RUN_NAME
 from export import export_data
 from eval import evaluate_eval_dataset
 
 
 def main():
-    print("Using device:", DEVICE)
-    print("Using data:", DATA_YAML)
+    print("===== POST-TRAINING PIPELINE =====")
 
-    model = YOLO("yolov8n.pt")
+    # YOLOv5 working dir = /app/yolov5
+    run_dir = os.path.join("../yolov5/runs/train", RUN_NAME)
 
-    results = model.train(
-        data=DATA_YAML,
-        imgsz=IMG_SIZE,
-        epochs=EPOCHS,
-        batch=BATCH_SIZE,
-        device=DEVICE,
-        project=PROJECT_NAME,
-        name=RUN_NAME,
-        **TRAIN_ARGS
-    )
+    if not os.path.exists(run_dir):
+        raise RuntimeError(f"Run directory not found: {run_dir}")
 
-    run_dir = str(results.save_dir)
+    print("Using run_dir:", run_dir)
 
-    export_data(run_dir, DATA_YAML)
+    # -----------------------------
+    # STEP 1: Evaluate ALL epochs
+    # -----------------------------
+    print("\n===== STEP 1: PER-EPOCH VALIDATION =====")
+    # export_data(run_dir, DATA_YAML)
 
+    # -----------------------------
+    # STEP 2: Evaluate BEST model on custom dataset
+    # -----------------------------
     best_model = os.path.join(run_dir, "weights", "best.pt")
+
+    if not os.path.exists(best_model):
+        raise RuntimeError("best.pt not found")
+
+    print("\n===== STEP 2: CUSTOM EVAL (DISTANCE / ROTATION) =====")
     evaluate_eval_dataset(best_model)
+
+    print("\n===== DONE =====")
 
 
 if __name__ == "__main__":

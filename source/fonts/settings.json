@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "/app/ModelGenerator/datasets",
+  "weights_dir": "weights",
+  "runs_dir": "runs",
+  "uuid": "86da18a03137d60a1510077531d95d6ed2bc4385902ea0af05469560ced07ba2",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

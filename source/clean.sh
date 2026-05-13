@@ -6,6 +6,7 @@
 
 DATA_DIR="/workspace/preview"
 MODEL_DIR="/app/ModelGenerator"
+YOLO_DIR="/app/yolov5"
 
 CLEAR_DATA=false
 CLEAR_MODEL=false
@@ -32,9 +33,10 @@ fi
 
 if [ "$CLEAR_MODEL" = true ]; then
     echo "Clearing model in $MODEL_DIR ..."
-    rm -rf "$MODEL_DIR/runs"/*
-    rm -rf "$MODEL_DIR/yolo*" 
     rm -rf "$MODEL_DIR/eval_results"/* 
+    rm -rf "${YOLO_DIR}/runs/"*
+    rm -rf "${YOLO_DIR}/quantize_result/"*
+    rm -rf "${YOLO_DIR}/compiled_model/"*
 fi
 
 echo "Done."
