@@ -11,10 +11,11 @@ OUT_DIR = "eval_results"
 IMG_SIZE = 320
 
 DETECT_DIR = "/app/yolov5/runs/detect_eval/exp"
+DATA_YAML = "/workspace/preview/data.yaml"
 
 
 # -----------------------------
-# Run inference with debug
+# Run inference
 # -----------------------------
 def run_inference(weights, image_path):
 
@@ -31,7 +32,9 @@ def run_inference(weights, image_path):
         "--img", str(IMG_SIZE),
         "--conf", "0.25",
         "--save-txt",
+        "--save-conf",  
         "--nosave",
+        "--data", DATA_YAML,  
         "--project", "runs/detect_eval",
         "--name", "exp",
         "--exist-ok"
@@ -48,11 +51,10 @@ def run_inference(weights, image_path):
     )
 
     try:
-        # stream YOLO output live
         for line in process.stdout:
             print("[YOLO]", line.strip())
 
-        process.wait(timeout=60)  # timeout per image
+        process.wait(timeout=60)
 
     except subprocess.TimeoutExpired:
         print("[ERROR] Inference timeout! Killing process...")
@@ -76,19 +78,19 @@ def read_prediction(label_path):
 
     if not os.path.exists(label_path):
         print("[DEBUG] No label file:", label_path)
-        return None, 0.0
+        return None, None
 
     with open(label_path, "r") as f:
         lines = f.readlines()
 
     if not lines:
         print("[DEBUG] Empty label file:", label_path)
-        return None, 0.0
+        return None, None
 
     parts = lines[0].strip().split()
 
     cls = int(parts[0])
-    conf = float(parts[5]) if len(parts) > 5 else 0.0
+    conf = float(parts[5]) if len(parts) > 5 else None  
 
     return cls, conf
 
@@ -144,16 +146,10 @@ def plot_results(df):
 # -----------------------------
 def evaluate_eval_dataset(model_path):
 
-    print("\n===== DEBUG INFO =====")
-    print("[DEBUG] Model path:", model_path)
-    print("[DEBUG] Eval dir:", EVAL_DIR)
-    print("======================\n")
-
     results = []
 
     for mode in ["distance", "rotation"]:
         img_dir = os.path.join(EVAL_DIR, mode)
-
         images = glob.glob(os.path.join(img_dir, "*.png"))
 
         print(f"[INFO] Found {len(images)} images in {mode}")
@@ -165,13 +161,12 @@ def evaluate_eval_dataset(model_path):
 
             gt, _, value = parse_eval_filename(filename)
             if gt is None:
-                print("[WARNING] Skipping invalid filename:", filename)
                 continue
 
-            success = run_inference(model_path, img_path)
+            gt_id = int(gt) 
 
+            success = run_inference(model_path, img_path)
             if not success:
-                print("[WARNING] Inference failed, skipping.")
                 continue
 
             label_file = os.path.join(
@@ -182,17 +177,15 @@ def evaluate_eval_dataset(model_path):
 
             pred_cls_id, conf = read_prediction(label_file)
 
-            pred_cls = str(pred_cls_id) if pred_cls_id is not None else None
-
-            print(f"[DEBUG] GT={gt}, PRED={pred_cls}, CONF={conf:.4f}")
+            print(f"[DEBUG] GT={gt_id}, PRED={pred_cls_id}, CONF={conf}")
 
             results.append({
                 "mode": mode,
                 "value": value,
-                "gt": gt,
-                "pred": pred_cls,
+                "gt": gt_id,
+                "pred": pred_cls_id,
                 "conf": conf,
-                "correct": pred_cls == gt
+                "correct": pred_cls_id == gt_id
             })
 
     df = pd.DataFrame(results)

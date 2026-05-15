@@ -4,7 +4,7 @@
 # -d clears dataset
 # -m clears model
 
-DATA_DIR="/workspace/preview"
+DATA_DIR="/workspace"
 MODEL_DIR="/app/ModelGenerator"
 YOLO_DIR="/app/yolov5"
 
@@ -28,7 +28,8 @@ fi
 
 if [ "$CLEAR_DATA" = true ]; then
     echo "Clearing dataset in $DATA_DIR ..."
-    rm -rf "$DATA_DIR"/*
+    rm -rf "${DATA_DIR}/preview"/*
+    rm -rf "${DATA_DIR}/calib_data"/*
 fi
 
 if [ "$CLEAR_MODEL" = true ]; then

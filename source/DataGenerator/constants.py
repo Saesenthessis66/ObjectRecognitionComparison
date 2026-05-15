@@ -12,22 +12,22 @@ LIGHT_SIZE_MIN = 0.05       # Minimum area light size
 LIGHT_SIZE_MAX = 0.3        # Maximum area light size
 
 # Random object tilt 
-TILT_X_MIN = -5
-TILT_X_MAX = 5
-TILT_Y_MIN = -5
-TILT_Y_MAX = 5
+TILT_X_MIN = -3
+TILT_X_MAX = 3
+TILT_Y_MIN = -3
+TILT_Y_MAX = 3
 
 # Offset between cubes in object
 OFFSET = 0.002
 
 # Rotation for dataset variation 
-ROT_MIN = -25
-ROT_MAX = 25
+ROT_MIN = -40
+ROT_MAX = 40
 ROT_STEP = 5
 
 # --- Camera distance ---
 CAM_DIST_MIN = 0.4
-CAM_DIST_MAX = 0.70
+CAM_DIST_MAX = 1.4
 CAM_DIST_STEP = 0.05
 
 # Class mapping (string -> YOLO class ID)
@@ -57,15 +57,15 @@ if BASE_DIR == "":
 OUTPUT_DIR = "/workspace/preview"
 
 # EVAL: DISTANCE TEST
-EVAL_DIST_MIN = 0.9
-EVAL_DIST_MAX = 1.0
-EVAL_DIST_STEP = 0.05
+EVAL_DIST_MIN = 0.3
+EVAL_DIST_MAX = 1.5
+EVAL_DIST_STEP = 0.02
 EVAL_DIST_ROT = 0  # fixed rotation
 
 # EVAL: ROTATION TEST
-EVAL_ROT_MIN = -5
-EVAL_ROT_MAX = 0
-EVAL_ROT_STEP = 5
+EVAL_ROT_MIN = -50
+EVAL_ROT_MAX = 50
+EVAL_ROT_STEP = 2
 EVAL_ROT_DIST = 0.5  # fixed distance
 
 # Disable randomness

@@ -54,53 +54,64 @@ def export_all_markers(materials):
 # Render single dataset sample with random rotation, tilt, lighting and camera distance
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
 
-    # Random tilt to avoid perfectly flat orientations
-    tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
-    tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
-
-    obj.rotation_euler[0] = math.radians(tilt_x)
-    obj.rotation_euler[1] = math.radians(tilt_y)
-    obj.rotation_euler[2] = math.radians(rotation_z)
-
-    bpy.context.view_layer.update()
-
-    # Compute visible camera area at given distance
-    view_w, view_h = get_camera_view_size(scene, cam, cam_dist)
-
-    # Compute projected object size
-    obj_w, obj_h = get_object_size_xy(obj)
-
-    overflow_ratio = -0.05
-
-    # Maximum random translation while keeping object inside frame
-    max_offset_x = (view_w - obj_w) / 2 + obj_w * overflow_ratio
-    max_offset_y = (view_h - obj_h) / 2 + obj_h * overflow_ratio
-
-    offset_x = random.uniform(-max_offset_x, max_offset_x)
-    offset_y = random.uniform(-max_offset_y, max_offset_y)
-
-    obj.location.x += offset_x
-    obj.location.z += offset_y
-
-    # Camera positioned above object looking down
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
 
-    # Random rendering parameters for more dataset diversity
     scene.cycles.samples = random.randint(16, 64)
     scene.view_settings.exposure = random.uniform(-0.5, 0.5)
     scene.cycles.use_denoising = False
 
     scene.render.filepath = filepath
 
-    # Calculate YOLO bounding box before render
-    bbox = get_yolo_bbox(scene, cam, obj)
+    max_tries = 20
+    bbox = None
+
+    for attempt in range(max_tries):
+
+        obj.location = (0, 0, 0)
+
+        # rotation
+        tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
+        tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
+
+        obj.rotation_euler = (
+            math.radians(tilt_x),
+            math.radians(tilt_y),
+            math.radians(rotation_z),
+        )
+
+        # progressively shrink translation range
+        shrink = 1.0 - (attempt / max_tries)
+        max_offset = 0.15 * cam_dist * shrink
+
+        obj.location.x = random.uniform(-max_offset, max_offset)
+        obj.location.z = random.uniform(-max_offset, max_offset)
+
+        bpy.context.view_layer.update()
+
+        bbox_candidate = get_yolo_bbox(scene, cam, obj)
+
+        if bbox_candidate is None:
+            continue
+
+        cx, cy, w, h = bbox_candidate
+
+        if (
+            (cx - w / 2) > 0 and
+            (cx + w / 2) < 1 and
+            (cy - h / 2) > 0 and
+            (cy + h / 2) < 1
+        ):
+            bbox = bbox_candidate
+            break
+
+    if bbox is None:
+        return False
 
     bpy.ops.render.render(write_still=True)
+    save_yolo_label(scene.render.filepath, class_id, bbox)
 
-    # Save label only if object is visible
-    if bbox is not None:
-        save_yolo_label(scene.render.filepath, class_id, bbox)
+    return True
 
 
 
@@ -167,6 +178,8 @@ def generate_dataset():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     materials = create_materials()
+    for m in materials.values():
+        m.use_fake_user = True
 
     export_all_markers(materials)
 
@@ -215,8 +228,8 @@ def generate_dataset():
                 # Randomize light size (soft shadows)
                 light.data.size = random.uniform(LIGHT_SIZE_MIN, LIGHT_SIZE_MAX)
 
-                # Random HDRI / background
-                set_random_background(scene)
+                if idx % 20 == 0:
+                    set_random_background(scene)
 
                 render_sample(
                     scene,
@@ -230,6 +243,10 @@ def generate_dataset():
                 )
 
                 idx += 1
+
+                if idx % 50 == 0:
+                    bpy.ops.outliner.orphans_purge(do_recursive=True)
+
                 dist += CAM_DIST_STEP
 
             rot += ROT_STEP
@@ -448,3 +465,69 @@ def generate_eval_datasets():
         bpy.data.objects.remove(obj, do_unlink=True)
 
     print("Evaluation datasets generated.")
+
+def balance_dataset():
+    images_dir = os.path.join(OUTPUT_DIR, "images", "train")
+    labels_dir = os.path.join(OUTPUT_DIR, "labels", "train")
+
+    balanced_img_dir = os.path.join(OUTPUT_DIR, "images", "train_balanced")
+    balanced_lbl_dir = os.path.join(OUTPUT_DIR, "labels", "train_balanced")
+
+    if os.path.exists(balanced_img_dir):
+        shutil.rmtree(balanced_img_dir)
+    if os.path.exists(balanced_lbl_dir):
+        shutil.rmtree(balanced_lbl_dir)
+
+    os.makedirs(balanced_img_dir, exist_ok=True)
+    os.makedirs(balanced_lbl_dir, exist_ok=True)
+
+    class_files = defaultdict(list)
+
+    # Group images by class (same logic as split_dataset)
+    for filename in os.listdir(images_dir):
+
+        if not filename.endswith(".png"):
+            continue
+
+        parts = filename.split("_")
+
+        if len(parts) < 3:
+            continue
+
+        class_name = parts[1]
+        class_files[class_name].append(filename)
+
+    # Find smallest class
+    min_count = min(len(files) for files in class_files.values())
+
+    print(f"[INFO] Balancing dataset to {min_count} samples per class")
+
+    for class_name, files in class_files.items():
+
+        random.shuffle(files)
+
+        selected_files = files[:min_count]
+
+        for file in selected_files:
+
+            src_img = os.path.join(images_dir, file)
+            dst_img = os.path.join(balanced_img_dir, file)
+
+            label_file = file.replace(".png", ".txt")
+
+            src_lbl = os.path.join(labels_dir, label_file)
+            dst_lbl = os.path.join(balanced_lbl_dir, label_file)
+
+            shutil.copy2(src_img, dst_img)
+
+            if os.path.exists(src_lbl):
+                shutil.copy2(src_lbl, dst_lbl)
+
+    # Replace original train dirs
+    shutil.rmtree(images_dir)
+    shutil.rmtree(labels_dir)
+
+    os.rename(balanced_img_dir, images_dir)
+    os.rename(balanced_lbl_dir, labels_dir)
+
+    print("Dataset balanced to smallest class.")

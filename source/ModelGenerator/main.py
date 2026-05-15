@@ -20,7 +20,7 @@ def main():
     # STEP 1: Evaluate ALL epochs
     # -----------------------------
     print("\n===== STEP 1: PER-EPOCH VALIDATION =====")
-    # export_data(run_dir, DATA_YAML)
+    export_data(run_dir, DATA_YAML)
 
     # -----------------------------
     # STEP 2: Evaluate BEST model on custom dataset
