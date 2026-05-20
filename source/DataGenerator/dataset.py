@@ -531,3 +531,78 @@ def balance_dataset():
     os.rename(balanced_lbl_dir, labels_dir)
 
     print("Dataset balanced to smallest class.")
+
+def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
+
+    base_dir = os.path.join(OUTPUT_DIR, "raw", seq_name)
+    img_dir = os.path.join(base_dir, "images")
+    lbl_dir = os.path.join(base_dir, "labels")
+
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(lbl_dir, exist_ok=True)
+
+    cam.location = (0, -dist, 0)
+    cam.rotation_euler = (math.radians(90), 0, 0)
+
+    obj.location = (0, 0, 0)
+    obj.rotation_euler = (0, 0, math.radians(rot))
+
+    bpy.context.view_layer.update()
+
+    bbox = get_yolo_bbox(scene, cam, obj)
+    if bbox is None:
+        return
+
+    filename = f"{seq_name}_{(dist*100):.0f}cm_{rot}deg_B.png"
+    filepath = os.path.join(img_dir, filename)
+
+    scene.render.filepath = filepath
+    bpy.ops.render.render(write_still=True)
+
+    label_path = os.path.join(lbl_dir, filename.replace(".png", ".txt"))
+    with open(label_path, "w") as f:
+        f.write(f"{class_id} {bbox[0]} {bbox[1]} {bbox[2]} {bbox[3]}")
+
+def generate_raw_dataset():
+    scene = bpy.context.scene
+    configure_render_engine(scene)
+
+    materials = create_materials()
+
+    for bits in product([0, 1], repeat=2):
+        seq_name = f"{bits[0]}{bits[1]}"
+        class_id = CLASS_MAP[seq_name]
+
+        setup_scene()
+        cam, light = setup_camera_light(scene)
+
+        obj = create_object(materials, bits)
+
+        light.data.energy = EVAL_LIGHT_ENERGY
+        light.data.color = EVAL_LIGHT_COLOR
+        light.data.size = EVAL_LIGHT_SIZE
+        scene.world.use_nodes = False
+
+        rot = ROT_MIN
+        while rot <= ROT_MAX:
+
+            dist = CAM_DIST_MIN
+            while dist <= CAM_DIST_MAX:
+
+                save_raw_sample(
+                    scene,
+                    cam,
+                    obj,
+                    dist,
+                    rot,
+                    seq_name,
+                    class_id
+                )
+
+                dist += CAM_DIST_STEP
+
+            rot += ROT_STEP
+
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    print("Raw dataset generated (no augmentation).")
