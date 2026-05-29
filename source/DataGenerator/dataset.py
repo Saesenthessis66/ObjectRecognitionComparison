@@ -66,11 +66,12 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
     max_tries = 20
     bbox = None
 
+    margin = 0.02 
+
     for attempt in range(max_tries):
 
         obj.location = (0, 0, 0)
 
-        # rotation
         tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
         tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
 
@@ -80,7 +81,6 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
             math.radians(rotation_z),
         )
 
-        # progressively shrink translation range
         shrink = 1.0 - (attempt / max_tries)
         max_offset = 0.15 * cam_dist * shrink
 
@@ -89,20 +89,18 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
 
         bpy.context.view_layer.update()
 
-        bbox_candidate = get_yolo_bbox(scene, cam, obj)
+        result = get_yolo_bbox(scene, cam, obj)
 
-        if bbox_candidate is None:
+        if result is None:
             continue
 
-        cx, cy, w, h = bbox_candidate
+        cx, cy, w, h, min_x, max_x, min_y, max_y = result
 
         if (
-            (cx - w / 2) > 0 and
-            (cx + w / 2) < 1 and
-            (cy - h / 2) > 0 and
-            (cy + h / 2) < 1
+            min_x >= margin and max_x <= 1 - margin and
+            min_y >= margin and max_y <= 1 - margin
         ):
-            bbox = bbox_candidate
+            bbox = (cx, cy, w, h)
             break
 
     if bbox is None:
@@ -120,21 +118,15 @@ def get_yolo_bbox(scene, cam, obj):
     depsgraph = bpy.context.evaluated_depsgraph_get()
     obj_eval = obj.evaluated_get(depsgraph)
 
-    # Evaluated mesh contains modifiers and final geometry
     mesh = obj_eval.to_mesh()
 
     coords_2d = []
 
     for v in mesh.vertices:
-
-        # Convert vertex to world coordinates
         co_world = obj.matrix_world @ v.co
-
-        # Convert world coordinate to normalized camera space (0-1)
         co_ndc = world_to_camera_view(scene, cam, co_world)
 
-        # Only keep vertices inside camera depth range
-        if 0.0 <= co_ndc.z <= 1.0:
+        if co_ndc.z > 0:
             coords_2d.append((co_ndc.x, 1 - co_ndc.y))
 
     obj_eval.to_mesh_clear()
@@ -145,19 +137,17 @@ def get_yolo_bbox(scene, cam, obj):
     xs = [c[0] for c in coords_2d]
     ys = [c[1] for c in coords_2d]
 
-    # Clamp bbox to image boundaries
-    min_x = max(min(xs), 0)
-    max_x = min(max(xs), 1)
-    min_y = max(min(ys), 0)
-    max_y = min(max(ys), 1)
+    min_x = min(xs)
+    max_x = max(xs)
+    min_y = min(ys)
+    max_y = max(ys)
 
-    # Convert to YOLO format (center_x, center_y, width, height)
     cx = (min_x + max_x) / 2
     cy = (min_y + max_y) / 2
     w = max_x - min_x
     h = max_y - min_y
 
-    return cx, cy, w, h
+    return cx, cy, w, h, min_x, max_x, min_y, max_y
 
 
 # Save YOLO label file corresponding to rendered image
@@ -549,8 +539,17 @@ def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
 
     bpy.context.view_layer.update()
 
-    bbox = get_yolo_bbox(scene, cam, obj)
-    if bbox is None:
+    bbox_data = get_yolo_bbox(scene, cam, obj)
+    if bbox_data is None:
+        return 
+
+    cx, cy, w, h, min_x, max_x, min_y, max_y = bbox_data
+
+    margin = 0.02
+    if not (
+        min_x >= margin and max_x <= 1 - margin and
+        min_y >= margin and max_y <= 1 - margin
+    ):
         return
 
     filename = f"{seq_name}_{(dist*100):.0f}cm_{rot}deg_B.png"
@@ -561,7 +560,7 @@ def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
 
     label_path = os.path.join(lbl_dir, filename.replace(".png", ".txt"))
     with open(label_path, "w") as f:
-        f.write(f"{class_id} {bbox[0]} {bbox[1]} {bbox[2]} {bbox[3]}")
+        f.write(f"{class_id} {bbox_data[0]} {bbox_data[1]} {bbox_data[2]} {bbox_data[3]}")
 
 def generate_raw_dataset():
     scene = bpy.context.scene
