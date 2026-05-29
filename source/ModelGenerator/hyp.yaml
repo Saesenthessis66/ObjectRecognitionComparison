@@ -1,40 +1,37 @@
-# --- optimizer / learning ---
-lr0: 0.001        # you used Adam with lr=0.001
+# optimizer / learning
+lr0: 0.001        # optimizer used adam with lr=0.001
 lrf: 0.01
-momentum: 0.9     # used as beta1 for Adam
+momentum: 0.9     # used as beta1 for adam
 weight_decay: 0.0005
 
-# --- warmup ---
+# warmup
 warmup_epochs: 3.0
 warmup_momentum: 0.8
 warmup_bias_lr: 0.1
 
-# --- loss gains ---
+# loss gains
 box: 0.05
 cls: 0.5
 cls_pw: 1.0
 obj: 1.0
 obj_pw: 1.0
 
-# --- thresholds ---
+# thresholds
 iou_t: 0.20
 anchor_t: 4.0
 fl_gamma: 0.0
 
-# --- AUGMENTATION 
+# augmentation
 hsv_h: 0.0
 hsv_s: 0.0
 hsv_v: 0.0
-
 degrees: 0.0
 translate: 0.0
 scale: 0.0
 shear: 0.0
 perspective: 0.0
-
 flipud: 0.0
 fliplr: 0.0
-
 mosaic: 0.0
 mixup: 0.0
 copy_paste: 0.0

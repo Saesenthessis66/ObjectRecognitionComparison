@@ -10,25 +10,25 @@ from bpy_extras.object_utils import world_to_camera_view
 
 from constants import *
 from setup import (
+    setup_compositor,
     setup_scene,
     configure_render_engine,
     setup_camera_light,
     create_materials,
     set_random_background,
-    create_object,
-    get_object_size_xy,
-    get_camera_view_size,
+    create_object
 )
 
+# Export object to DAE file.
 def export_to_dae(obj, path):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
 
-    # Ustaw origin (ważne dla Gazebo)
+    # Set origin (important for Gazebo)
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 
-    # Apply transformacje
+    # Apply transformations
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 
     bpy.ops.wm.collada_export(
@@ -38,6 +38,7 @@ def export_to_dae(obj, path):
     )
 
 
+# Export all marker variants to DAE files.
 def export_all_markers(materials):
     dae_dir = os.path.join(OUTPUT_DIR, "dae")
     os.makedirs(dae_dir, exist_ok=True)
@@ -53,7 +54,6 @@ def export_all_markers(materials):
 
 # Render single dataset sample with random rotation, tilt, lighting and camera distance
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
-
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
 
@@ -78,7 +78,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
         obj.rotation_euler = (
             math.radians(tilt_x),
             math.radians(tilt_y),
-            math.radians(rotation_z),
+            math.radians(-rotation_z),
         )
 
         shrink = 1.0 - (attempt / max_tries)
@@ -164,6 +164,7 @@ def generate_dataset():
     scene = bpy.context.scene
 
     configure_render_engine(scene)
+    setup_compositor(scene)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -326,7 +327,6 @@ def split_dataset(train_ratio=0.7, val_ratio=0.2):
 
 # Create YOLO dataset configuration file
 def create_data_yaml():
-
     yaml_path = os.path.join(OUTPUT_DIR, "data.yaml")
 
     with open(yaml_path, "w") as f:
@@ -343,6 +343,7 @@ names:
   3: "11"
 """)
 
+# Generate evaluation datasets for distance and rotation.
 def generate_eval_datasets():
     scene = bpy.context.scene
     configure_render_engine(scene)
@@ -522,8 +523,8 @@ def balance_dataset():
 
     print("Dataset balanced to smallest class.")
 
+# Save one raw sample without augmentation.
 def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
-
     base_dir = os.path.join(OUTPUT_DIR, "raw", seq_name)
     img_dir = os.path.join(base_dir, "images")
     lbl_dir = os.path.join(base_dir, "labels")
@@ -562,6 +563,7 @@ def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
     with open(label_path, "w") as f:
         f.write(f"{class_id} {bbox_data[0]} {bbox_data[1]} {bbox_data[2]} {bbox_data[3]}")
 
+# Generate raw dataset without augmentation.
 def generate_raw_dataset():
     scene = bpy.context.scene
     configure_render_engine(scene)

@@ -4,10 +4,7 @@ import subprocess
 import pandas as pd
 import re
 
-
-# -----------------------------
-# Run YOLOv5 validation
-# -----------------------------
+# run yolov5 validation
 def run_val(weights, data_yaml):
     cmd = [
         "python", "val.py",
@@ -27,22 +24,17 @@ def run_val(weights, data_yaml):
         print("ERROR running val.py")
         print(result.stderr)
         raise RuntimeError("val.py failed")
-
-    # IMPORTANT: YOLO prints to stderr
+    # important: yolo prints to stderr
     return result.stdout + "\n" + result.stderr
 
 
-# -----------------------------
-# Parse YOLOv5 console output
-# -----------------------------
+# parse yolo v5 output
 def parse_output(output):
     rows = []
 
     for line in output.split("\n"):
         line = line.strip()
-
-        # Match table rows like:
-        # class images labels P R mAP50 mAP50-95
+        # match table rows like: class images labels P R mAP50 mAP50-95
         match = re.match(
             r"^(\S+)\s+\d+\s+\d+\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)",
             line
@@ -60,16 +52,11 @@ def parse_output(output):
     return rows
 
 
-# -----------------------------
-# Main export function
-# -----------------------------
+# main export function
 def export_data(run_dir, data_yaml):
-
     print("Starting export...")
 
-    # -----------------------------
-    # Fix encoding of training CSV
-    # -----------------------------
+    # fix encoding of training csv
     csv_path = os.path.join(run_dir, "results.csv")
     if os.path.exists(csv_path):
         df_train = pd.read_csv(csv_path, encoding="latin1")
@@ -79,9 +66,7 @@ def export_data(run_dir, data_yaml):
             index=False
         )
 
-    # -----------------------------
-    # Load all epoch weights
-    # -----------------------------
+    # load all epoch weights
     weights = sorted(glob.glob(os.path.join(run_dir, "weights", "epoch*.pt")))
 
     if not weights:
@@ -90,15 +75,12 @@ def export_data(run_dir, data_yaml):
 
     rows = []
 
-    # -----------------------------
-    # Evaluate each epoch
-    # -----------------------------
+    # evaluate each epoch
     for w in weights:
         print(f"Evaluating: {w}")
 
         output = run_val(w, data_yaml)
-
-        # Debug (optional, can remove later)
+        # debug optional
         print("---- RAW OUTPUT (first 200 chars) ----")
         print(output[:200])
 
@@ -122,9 +104,7 @@ def export_data(run_dir, data_yaml):
                 "mAP50-95": m["mAP50-95"],
             })
 
-    # -----------------------------
-    # Build DataFrame
-    # -----------------------------
+    # build dataframe
     df = pd.DataFrame(rows)
 
     if df.empty or "class" not in df.columns:
@@ -133,22 +113,16 @@ def export_data(run_dir, data_yaml):
 
     out_path = os.path.join(run_dir, "per_class_per_epoch.xlsx")
 
-    # -----------------------------
-    # Write Excel
-    # -----------------------------
+    # write excel
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
 
-        # -------------------------
-        # 1. GLOBAL ("all")
-        # -------------------------
+        # global all
         df_all = df[df["class"] == "all"].copy()
         if not df_all.empty:
             df_all = df_all.sort_values("epoch")
             df_all.to_excel(writer, sheet_name="ALL", index=False)
 
-        # -------------------------
-        # 2. PER-CLASS
-        # -------------------------
+        # per-class
         classes = sorted(df["class"].unique())
 
         for cls in classes:
@@ -168,9 +142,7 @@ def export_data(run_dir, data_yaml):
                 index=False
             )
 
-        # -------------------------
-        # 3. SUMMARY (pivot tables)
-        # -------------------------
+        # summary pivot tables
         df_no_all = df[df["class"] != "all"]
 
         if not df_no_all.empty:

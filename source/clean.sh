@@ -1,9 +1,7 @@
 #!/bin/bash
-
-# Usage: ./clean.sh -d -m
+# usage: ./clean.sh -d -m
 # -d clears dataset
 # -m clears model
-
 DATA_DIR="/workspace"
 MODEL_DIR="/app/ModelGenerator"
 YOLO_DIR="/app/yolov5"

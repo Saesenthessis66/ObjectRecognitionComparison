@@ -1,5 +1,4 @@
 import torch
-
 DATA_YAML = "/workspace/preview/data.yaml"
 
 IMG_SIZE = 320
@@ -19,7 +18,7 @@ TRAIN_ARGS = dict(
     workers=0,
     save_period=1,
 
-    # augmentation OFF
+    # augmentation off
     mosaic=0.0,
     mixup=0.0,
     copy_paste=0.0,

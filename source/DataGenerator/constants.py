@@ -1,17 +1,17 @@
 import os
 import bpy
 
-# Light properties 
+# Light properties
 LIGHT_ENERGY_MIN = 8        # Minimum light energy
 LIGHT_ENERGY_MAX = 40       # Maximum light energy
 
-LIGHT_COLOR_MIN = (0.9, 0.9, 0.9)  # Min RGB color for light
-LIGHT_COLOR_MAX = (1.0, 1.0, 1.0)  # Max RGB color for light
+LIGHT_COLOR_MIN = (0.9, 0.9, 0.9)  # Minimum RGB color for light
+LIGHT_COLOR_MAX = (1.0, 1.0, 1.0)  # Maximum RGB color for light
 
 LIGHT_SIZE_MIN = 0.05       # Minimum area light size
 LIGHT_SIZE_MAX = 0.3        # Maximum area light size
 
-# Random object tilt 
+# Random object tilt
 TILT_X_MIN = -3
 TILT_X_MAX = 3
 TILT_Y_MIN = -3
@@ -20,17 +20,17 @@ TILT_Y_MAX = 3
 # Offset between cubes in object
 OFFSET = 0.002
 
-# Rotation for dataset variation 
-ROT_MIN = -40
-ROT_MAX = 40
+# Rotation for dataset variation
+ROT_MIN = -60
+ROT_MAX = 60
 ROT_STEP = 5
 
-# --- Camera distance ---
-CAM_DIST_MIN = 0.4
-CAM_DIST_MAX = 1.4
+# Camera distance
+CAM_DIST_MIN = 0.3
+CAM_DIST_MAX = 1.0
 CAM_DIST_STEP = 0.05
 
-# Class mapping (string -> YOLO class ID)
+# Class mapping from string to YOLO class id
 CLASS_MAP = {
     "00": 0,
     "01": 1,
@@ -49,24 +49,24 @@ BACKGROUND_TYPES = [
     "DIRTY_BACKGROUND"
 ]
 
-# File paths 
+# File paths
 BASE_DIR = os.path.dirname(bpy.data.filepath)
 if BASE_DIR == "":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 OUTPUT_DIR = "/workspace/preview"
 
-# EVAL: DISTANCE TEST
+# Eval distance test
 EVAL_DIST_MIN = 0.3
-EVAL_DIST_MAX = 1.5
-EVAL_DIST_STEP = 0.02
-EVAL_DIST_ROT = 0  # fixed rotation
+EVAL_DIST_MAX = 2.1
+EVAL_DIST_STEP = 0.10
+EVAL_DIST_ROT = 0  # Fixed rotation
 
-# EVAL: ROTATION TEST
-EVAL_ROT_MIN = -50
-EVAL_ROT_MAX = 50
-EVAL_ROT_STEP = 2
-EVAL_ROT_DIST = 0.5  # fixed distance
+# Eval rotation test
+EVAL_ROT_MIN = -80
+EVAL_ROT_MAX = 80
+EVAL_ROT_STEP = 10
+EVAL_ROT_DIST = 0.5  # Fixed distance
 
 # Disable randomness
 EVAL_TILT_X = 0

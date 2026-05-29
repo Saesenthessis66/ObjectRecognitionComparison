@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e  # stop on error
-
 echo "===== STEP 0: PREPARE CALIBRATION DATA ====="
 
 CALIB_SRC="/workspace/preview/images/train"
@@ -13,8 +12,6 @@ echo "Cleaning old calibration data..."
 rm -rf ${CALIB_DST:?}/*
 
 echo "Selecting calibration images..."
-
-
 ls "$CALIB_SRC"/*.png | head -n $CALIB_COUNT | while read img; do
     cp "$img" "$CALIB_DST/"
 done
@@ -27,8 +24,8 @@ cd /app/yolov5
 
 python train.py \
   --img 320 \
-  --batch 32 \
-  --epochs 120 \
+  --batch 128 \
+  --epochs 140 \
   --data /workspace/preview/data.yaml \
   --cfg models/yolov5n.yaml \
   --weights yolov5n.pt \

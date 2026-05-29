@@ -14,11 +14,8 @@ DETECT_DIR = "/app/yolov5/runs/detect_eval/exp"
 DATA_YAML = "/workspace/preview/data.yaml"
 
 
-# -----------------------------
-# Run inference
-# -----------------------------
+# run inference
 def run_inference(weights, image_path):
-
     print(f"\n[INFO] Running inference on: {image_path}")
 
     # clean previous results
@@ -71,11 +68,8 @@ def run_inference(weights, image_path):
     return True
 
 
-# -----------------------------
-# Read prediction
-# -----------------------------
+# read prediction
 def read_prediction(label_path):
-
     if not os.path.exists(label_path):
         print("[DEBUG] No label file:", label_path)
         return None, None
@@ -95,9 +89,7 @@ def read_prediction(label_path):
     return cls, conf
 
 
-# -----------------------------
-# Parse filename
-# -----------------------------
+# parse filename
 def parse_eval_filename(name):
     parts = name.replace(".png", "").split("_")
 
@@ -112,9 +104,7 @@ def parse_eval_filename(name):
     return None, None, None
 
 
-# -----------------------------
-# Plot results
-# -----------------------------
+# plot results
 def plot_results(df):
     os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -141,11 +131,8 @@ def plot_results(df):
         print(f"[INFO] Saved plot: {out_path}")
 
 
-# -----------------------------
-# Main evaluation
-# -----------------------------
+# main evaluation
 def evaluate_eval_dataset(model_path):
-
     results = []
 
     for mode in ["distance", "rotation"]:
