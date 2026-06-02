@@ -23,8 +23,9 @@ echo "===== STEP 1: TRAIN ====="
 cd /app/yolov5
 
 python train.py \
-  --img 320 \
-  --batch 128 \
+  --img 640 \
+  --rect \
+  --batch 32 \
   --epochs 140 \
   --data /workspace/preview/data.yaml \
   --cfg models/yolov5n.yaml \
@@ -32,7 +33,7 @@ python train.py \
   --project runs/train \
   --hyp /app/ModelGenerator/hyp.yaml \
   --save-period 1 \
-  --name yolov5n_320_noaug \
+  --name yolov5n_640_noaug \
   --exist-ok
 
 echo "===== STEP 2: EVALUATE ====="

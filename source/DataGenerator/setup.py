@@ -13,7 +13,7 @@ def setup_scene():
 def configure_render_engine(scene):
     scene.render.engine = 'CYCLES'
     scene.render.resolution_x = 640
-    scene.render.resolution_y = 480
+    scene.render.resolution_y = 640  
 
     prefs = bpy.context.preferences
     cycles_prefs = prefs.addons['cycles'].preferences
@@ -25,54 +25,36 @@ def configure_render_engine(scene):
         device.use = True
 
     scene.cycles.device = 'GPU'
-    scene.cycles.samples = random.randint(128, 256)
 
-    # enable motion blur
-    scene.render.use_motion_blur = True
-    scene.render.motion_blur_shutter = random.uniform(0.1, 0.5)
+    scene.cycles.samples = 128
+
+    scene.render.use_motion_blur = False
 
 # setup camera and lights
 def setup_camera_light(scene):
-    # add camera
     bpy.ops.object.camera_add(location=(0, -1, 0))
     cam = bpy.context.object
     scene.camera = cam
 
     cam.data.lens_unit = 'FOV'
+
+    cam.data.angle = math.radians(69)
+
+    scene.render.resolution_x = 1280
+    scene.render.resolution_y = 720
+
     cam.data.sensor_fit = 'HORIZONTAL'
-    cam.data.angle = math.radians(69)  # RealSense RGB
 
-    # disable depth of field
     cam.data.dof.use_dof = False
+    cam.rotation_euler = (math.radians(90), 0, 0)
 
-    # apply slight jitter to camera rotation
-    cam.rotation_euler = (
-        math.radians(90 + random.uniform(-1, 1)),
-        math.radians(random.uniform(-1, 1)),
-        math.radians(random.uniform(-1, 1)),
-    )
-
-    # add key light
+    # simple stable light
     bpy.ops.object.light_add(type='AREA', location=(0, -1, 1))
-    key = bpy.context.object
-    key.data.energy = random.uniform(10, 80)
-    key.data.size = random.uniform(0.1, 0.5)
+    light = bpy.context.object
+    light.data.energy = 25
+    light.data.size = 0.2
 
-    # add fill light
-    bpy.ops.object.light_add(type='POINT', location=(
-        random.uniform(-1, 1),
-        random.uniform(-1, 1),
-        random.uniform(0.5, 2)
-    ))
-    fill = bpy.context.object
-    fill.data.energy = random.uniform(5, 40)
-
-    # set ambient background strength
-    scene.world.use_nodes = True
-    bg = scene.world.node_tree.nodes["Background"]
-    bg.inputs[1].default_value = random.uniform(0.1, 0.3)
-
-    return cam, key
+    return cam, light
 
 # create a material with random roughness and specular
 def create_material(color):
@@ -120,13 +102,64 @@ def set_random_background(scene):
 
     links.new(bg.outputs['Background'], output.inputs['Surface'])
 
-    bg.inputs['Color'].default_value = (
-        random.uniform(0.2, 0.8),
-        random.uniform(0.2, 0.8),
-        random.uniform(0.2, 0.8),
-        1
-    )
-    bg.inputs['Strength'].default_value = random.uniform(0.5, 1.5)
+    bg_type = random.choice(BACKGROUND_TYPES)
+
+    if bg_type == "LIGHT_SOLID":
+        val = random.uniform(0.7, 0.85)
+        bg.inputs['Color'].default_value = (val, val, val, 1)
+
+    elif bg_type == "DARK_SOLID":
+        val = random.uniform(0.05, 0.3)
+        bg.inputs['Color'].default_value = (val, val, val, 1)
+
+    elif bg_type == "NEUTRAL_COLOR":
+        r = random.uniform(0.6, 0.9)
+        g = random.uniform(0.6, 0.9)
+        b = random.uniform(0.5, 0.8)
+        bg.inputs['Color'].default_value = (r, g, b, 1)
+
+    # Procedural gradient background
+    elif bg_type in ["HORIZONTAL_GRADIENT", "VERTICAL_GRADIENT"]:
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        gradient = nodes.new(type='ShaderNodeTexGradient')
+        mapping = nodes.new(type='ShaderNodeMapping')
+
+        # Rotate gradient if vertical
+        if bg_type == "VERTICAL_GRADIENT":
+            mapping.inputs['Rotation'].default_value[2] = math.radians(90)
+
+        links.new(tex_coord.outputs['Generated'], mapping.inputs['Vector'])
+        links.new(mapping.outputs['Vector'], gradient.inputs['Vector'])
+        links.new(gradient.outputs['Color'], bg.inputs['Color'])
+
+    # Procedural noise background
+    elif bg_type == "NOISE_TEXTURE":
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        noise = nodes.new(type='ShaderNodeTexNoise')
+
+        noise.inputs['Scale'].default_value = random.uniform(2, 6)
+        noise.inputs['Detail'].default_value = 2
+
+        links.new(tex_coord.outputs['Generated'], noise.inputs['Vector'])
+        links.new(noise.outputs['Color'], bg.inputs['Color'])
+
+    # Dirty / uneven background for realism
+    elif bg_type == "DIRTY_BACKGROUND":
+        tex_coord = nodes.new(type='ShaderNodeTexCoord')
+        noise = nodes.new(type='ShaderNodeTexNoise')
+        ramp = nodes.new(type='ShaderNodeValToRGB')
+
+        noise.inputs['Scale'].default_value = random.uniform(5, 15)
+        noise.inputs['Detail'].default_value = 5
+
+        ramp.color_ramp.elements[0].color = (0.3, 0.3, 0.3, 1)
+        ramp.color_ramp.elements[1].color = (0.7, 0.7, 0.7, 1)
+
+        links.new(tex_coord.outputs['Generated'], noise.inputs['Vector'])
+        links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+        links.new(ramp.outputs['Color'], bg.inputs['Color'])
+
+    bg.inputs['Strength'].default_value = random.uniform(0.7, 1.3)
 
 # create the object from bit materials
 def create_object(materials, bits):
@@ -166,33 +199,4 @@ def create_object(materials, bits):
 
 # setup compositor nodes for lens distortion and noise
 def setup_compositor(scene):
-    scene.use_nodes = True
-    nodes = scene.node_tree.nodes
-    links = scene.node_tree.links
-    nodes.clear()
-
-    render = nodes.new(type='CompositorNodeRLayers')
-    lens = nodes.new(type='CompositorNodeLensdist')
-    mix = nodes.new(type='CompositorNodeMixRGB')
-    noise = nodes.new(type='CompositorNodeRGB')
-    comp = nodes.new(type='CompositorNodeComposite')
-
-    lens.inputs[1].default_value = random.uniform(0.002, 0.01)   # distort
-    lens.inputs[2].default_value = random.uniform(0.0, 0.001)    # dispersion
-
-    noise_strength = random.uniform(0.001, 0.005)
-    noise.outputs[0].default_value = (
-        noise_strength,
-        noise_strength,
-        noise_strength,
-        1.0
-    )
-
-    mix.blend_type = 'ADD'
-    mix.inputs[0].default_value = random.uniform(0.005, 0.015)  # factor
-
-    # connect compositor nodes
-    links.new(render.outputs[0], lens.inputs[0])
-    links.new(lens.outputs[0], mix.inputs[1])
-    links.new(noise.outputs[0], mix.inputs[2])
-    links.new(mix.outputs[0], comp.inputs[0])
+    scene.use_nodes = False

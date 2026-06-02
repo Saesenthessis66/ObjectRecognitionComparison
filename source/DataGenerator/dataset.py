@@ -3,6 +3,7 @@ import os
 import math
 import random
 import shutil
+import mathutils
 from itertools import product
 from collections import defaultdict
 
@@ -54,47 +55,70 @@ def export_all_markers(materials):
 
 # Render single dataset sample with random rotation, tilt, lighting and camera distance
 def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
+
+    # --- Camera setup ---
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
 
-    scene.cycles.samples = random.randint(16, 64)
-    scene.view_settings.exposure = random.uniform(-0.5, 0.5)
-    scene.cycles.use_denoising = False
-
     scene.render.filepath = filepath
+
+    # --- IMPORTANT: compute and store centered base position ---
+    bpy.context.view_layer.update()
+
+    bbox_world = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
+    center = sum(bbox_world, mathutils.Vector()) / 8
+
+    # Move object so its visual center is at origin
+    obj.location -= center
+
+    # Save this as stable reference
+    base_location = obj.location.copy()
 
     max_tries = 20
     bbox = None
 
-    margin = 0.02 
+    margin = 0.02
+    MIN_SIZE = 0.02
 
     for attempt in range(max_tries):
 
-        obj.location = (0, 0, 0)
+        # --- Reset to centered position (NOT (0,0,0)) ---
+        obj.location = base_location.copy()
 
+        # --- Rotation ---
         tilt_x = random.uniform(TILT_X_MIN, TILT_X_MAX)
         tilt_y = random.uniform(TILT_Y_MIN, TILT_Y_MAX)
 
         obj.rotation_euler = (
             math.radians(tilt_x),
             math.radians(tilt_y),
-            math.radians(-rotation_z),
+            math.radians(rotation_z),
         )
 
+        # --- Controlled translation relative to center ---
         shrink = 1.0 - (attempt / max_tries)
         max_offset = 0.15 * cam_dist * shrink
 
-        obj.location.x = random.uniform(-max_offset, max_offset)
-        obj.location.z = random.uniform(-max_offset, max_offset)
+        obj.location.x = base_location.x + random.uniform(-max_offset, max_offset)
+        obj.location.z = base_location.z + random.uniform(-max_offset, max_offset)
 
         bpy.context.view_layer.update()
 
         result = get_yolo_bbox(scene, cam, obj)
-
         if result is None:
             continue
 
-        cx, cy, w, h, min_x, max_x, min_y, max_y = result
+        cx, cy, w, h = result
+
+        # Reject tiny boxes (prevents NaN)
+        if w < MIN_SIZE or h < MIN_SIZE:
+            continue
+
+        # Check margins
+        min_x = cx - w / 2
+        max_x = cx + w / 2
+        min_y = cy - h / 2
+        max_y = cy + h / 2
 
         if (
             min_x >= margin and max_x <= 1 - margin and
@@ -137,17 +161,21 @@ def get_yolo_bbox(scene, cam, obj):
     xs = [c[0] for c in coords_2d]
     ys = [c[1] for c in coords_2d]
 
-    min_x = min(xs)
-    max_x = max(xs)
-    min_y = min(ys)
-    max_y = max(ys)
+    min_x = max(min(xs), 0.0)
+    max_x = min(max(xs), 1.0)
+    min_y = max(min(ys), 0.0)
+    max_y = min(max(ys), 1.0)
 
-    cx = (min_x + max_x) / 2
-    cy = (min_y + max_y) / 2
     w = max_x - min_x
     h = max_y - min_y
 
-    return cx, cy, w, h, min_x, max_x, min_y, max_y
+    if w <= 1e-6 or h <= 1e-6:
+        return None
+
+    cx = (min_x + max_x) / 2
+    cy = (min_y + max_y) / 2
+
+    return cx, cy, w, h
 
 
 # Save YOLO label file corresponding to rendered image
@@ -155,8 +183,15 @@ def save_yolo_label(filepath, class_id, bbox):
     label_path = filepath.replace("images", "labels").replace(".png", ".txt")
     os.makedirs(os.path.dirname(label_path), exist_ok=True)
 
+    cx, cy, w, h = bbox
+
+    cx = max(0.0, min(1.0, cx))
+    cy = max(0.0, min(1.0, cy))
+    w  = max(1e-6, min(1.0, w))
+    h  = max(1e-6, min(1.0, h))
+
     with open(label_path, "w") as f:
-        f.write(f"{class_id} {bbox[0]} {bbox[1]} {bbox[2]} {bbox[3]}")
+        f.write(f"{class_id} {cx} {cy} {w} {h}")
 
 
 # Main dataset generation loop
@@ -380,7 +415,7 @@ def generate_eval_datasets():
 
         while dist <= EVAL_DIST_MAX:
 
-            obj.location = (0, 0, 0)
+            obj.location = (0.025, 0, 0)
             obj.rotation_euler = (
                 math.radians(EVAL_TILT_X),
                 math.radians(EVAL_TILT_Y),
@@ -536,7 +571,6 @@ def save_raw_sample(scene, cam, obj, dist, rot, seq_name, class_id):
     cam.rotation_euler = (math.radians(90), 0, 0)
 
     obj.location = (0, 0, 0)
-    obj.rotation_euler = (0, 0, math.radians(rot))
 
     bpy.context.view_layer.update()
 
