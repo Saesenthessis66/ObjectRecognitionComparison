@@ -21,14 +21,14 @@ TILT_Y_MAX = 3
 OFFSET = 0.002
 
 # Rotation for dataset variation
-ROT_MIN = -20
-ROT_MAX = 20
+ROT_MIN = -40
+ROT_MAX = 40
 ROT_STEP = 5
 
 # Camera distance
 CAM_DIST_MIN = 0.1   
-CAM_DIST_MAX = 0.8   
-CAM_DIST_STEP = 0.1
+CAM_DIST_MAX = 0.9   
+CAM_DIST_STEP = 0.05
 
 # Class mapping from string to YOLO class id
 CLASS_MAP = {
@@ -42,9 +42,9 @@ CLASS_MAP = {
 BACKGROUND_TYPES = [
     # "LIGHT_SOLID",
     # "DARK_SOLID",
-    # "NEUTRAL_COLOR",
-    "HORIZONTAL_GRADIENT",
-    "VERTICAL_GRADIENT",
+    "NEUTRAL_COLOR",
+    # "HORIZONTAL_GRADIENT",
+    # "VERTICAL_GRADIENT",
     "NOISE_TEXTURE",
     "DIRTY_BACKGROUND"
 ]
@@ -57,9 +57,9 @@ if BASE_DIR == "":
 OUTPUT_DIR = "/workspace/preview"
 
 # Eval distance test
-EVAL_DIST_MIN = 0.3
-EVAL_DIST_MAX = 2.1
-EVAL_DIST_STEP = 0.10
+EVAL_DIST_MIN = 0.2
+EVAL_DIST_MAX = 1.5
+EVAL_DIST_STEP = 0.05
 EVAL_DIST_ROT = 0  # Fixed rotation
 
 # Eval rotation test

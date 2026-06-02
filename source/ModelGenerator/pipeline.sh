@@ -25,7 +25,7 @@ cd /app/yolov5
 python train.py \
   --img 640 \
   --rect \
-  --batch 32 \
+  --batch 64 \
   --epochs 140 \
   --data /workspace/preview/data.yaml \
   --cfg models/yolov5n.yaml \

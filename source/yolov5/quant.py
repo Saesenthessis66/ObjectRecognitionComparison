@@ -3,20 +3,50 @@ import argparse
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.io import read_image
-import torchvision
+import numpy as np
+import cv2
 
 from pytorch_nndct.apis import torch_quantizer
 from models.experimental import attempt_load
 
 
+# ---------------- Letterbox ----------------
+def letterbox(img, new_size=640, color=(114, 114, 114)):
+    """
+    Resize image with unchanged aspect ratio using padding (YOLOv5 style)
+    """
+    img = img.permute(1, 2, 0).cpu().numpy()  # CHW -> HWC
+
+    h, w = img.shape[:2]
+
+    # Scale ratio
+    scale = min(new_size / h, new_size / w)
+    nh, nw = int(round(h * scale)), int(round(w * scale))
+
+    # Resize
+    img_resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+
+    # Create padded image
+    canvas = np.full((new_size, new_size, 3), color, dtype=np.uint8)
+
+    top = (new_size - nh) // 2
+    left = (new_size - nw) // 2
+
+    canvas[top:top + nh, left:left + nw] = img_resized
+
+    # Back to tensor
+    img = torch.from_numpy(canvas).permute(2, 0, 1).float() / 255.0
+    return img
+
+
 # ---------------- Dataset ----------------
 class ImageDataset(Dataset):
-    def __init__(self, img_dir, size=320):
+    def __init__(self, img_dir, size=640):
         self.img_dir = img_dir
         self.size = size
         self.files = [
             f for f in os.listdir(img_dir)
-            if f.lower().endswith(('.jpg', '.png', '.jpeg'))
+            if f.lower().endswith(('.jpg', '.jpeg', '.png'))
         ]
 
         if len(self.files) == 0:
@@ -27,14 +57,15 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         path = os.path.join(self.img_dir, self.files[idx])
-        img = read_image(path)
+        img = read_image(path)  # uint8 tensor [C,H,W]
 
-        # Remove alpha channel if present
+        # Remove alpha if present
         if img.shape[0] == 4:
-            img = img[:3, :, :]
+            img = img[:3]
 
-        img = img.float() / 255.0
-        img = torchvision.transforms.Resize((self.size, self.size))(img)
+        # Apply letterbox (handles scaling + normalization)
+        img = letterbox(img, self.size)
+
         return img
 
 
@@ -54,10 +85,11 @@ def run_quant(build_dir, quant_mode, weights, img_dir, img_size):
     print(f"Device     : {device}")
 
     # Load YOLOv5 model
-    model = attempt_load(weights)
+    model = attempt_load(weights, device=device)
     model.to(device)
     model.eval()
 
+    # Dummy input (must match deployment shape)
     dummy_input = torch.randn(1, 3, img_size, img_size).to(device)
 
     quantizer = torch_quantizer(
@@ -77,12 +109,13 @@ def run_quant(build_dir, quant_mode, weights, img_dir, img_size):
     with torch.no_grad():
         for i, imgs in enumerate(loader):
             imgs = imgs.to(device)
+
             _ = quant_model(imgs)
 
             if i % 10 == 0:
                 print(f"Processed {i}/{len(loader)}")
 
-    # Export
+    # Export results
     if quant_mode == 'calib':
         print("\nExporting quant config...")
         quantizer.export_quant_config()
@@ -90,6 +123,18 @@ def run_quant(build_dir, quant_mode, weights, img_dir, img_size):
     elif quant_mode == 'test':
         print("\nExporting xmodel...")
         quantizer.export_xmodel(deploy_check=False)
+
+        print("\nExporting ONNX quantized model...")
+        dummy_input = torch.randn(1, 3, img_size, img_size).to(device)
+
+        try:
+            quantizer.export_onnx_model(
+                output_dir=build_dir,
+                dynamic_batch=False
+            )
+            print("ONNX export successful")
+        except Exception as e:
+            print("ONNX export failed:", e)
 
     print("\n===== DONE =====")
 
@@ -130,7 +175,7 @@ def parse_args():
     parser.add_argument(
         "--img_size",
         type=int,
-        default=320,
+        default=640,
         help="Input image size"
     )
 

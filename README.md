@@ -14,15 +14,16 @@ docker run -it \
   -v $(pwd)/calib_data:/workspace/calib_data \
   xilinx/vitis-ai-pytorch-cpu:ubuntu2004-3.0.0.106
 
+# SWAP FORWARD METHOD IN YOLO.PY FOR QUANTIZATION!!!
 
 python quant.py \
   --quant_mode calib \
-  --weights runs/train/yolov5n_320_noaug/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
   --img_dir /workspace/source/workspace/calib_data/images
 
 python quant.py \
   --quant_mode test \
-  --weights runs/train/yolov5n_320_noaug/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
   --img_dir  /workspace/source/workspace/calib_data/images
 
 vai_c_xir \
@@ -31,7 +32,8 @@ vai_c_xir \
   -o compiled_model \
   -n yolov5_kv260
 
-scp -O compiled_model/yolov5_kv260.xmodel root@<KV260_IP>:/home/root/
-scp -O run.py root@<KV260_IP>:/home/root/
-scp -O test.png root@<KV260_IP>:/home/root/
-scp -O root@<KV260_IP>:/home/root/result.png .
+scp -O compiled_model/yolov5_kv260.xmodel root@10.1.1.106:/home/root/
+scp -O test.png root@10.1.1.106:/home/root/
+scp -O root@10.1.1.106:/home/root/result.png .
+
+Can't add new modules after the interpreter has been initialized

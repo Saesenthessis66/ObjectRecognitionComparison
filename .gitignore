@@ -6,3 +6,6 @@ source/DataGenerator/__pycache__
 source/yolov5/quantize_result
 source/yolov5/compiled_model
 *__pycache__
+test
+*.csv
+*.png

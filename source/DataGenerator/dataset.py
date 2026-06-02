@@ -54,25 +54,13 @@ def export_all_markers(materials):
         export_to_dae(obj, path)
 
 # Render single dataset sample with random rotation, tilt, lighting and camera distance
-def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light):
+def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, light, base_location):
 
     # --- Camera setup ---
     cam.location = (0, -cam_dist, 0)
     cam.rotation_euler = (math.radians(90), 0, 0)
 
     scene.render.filepath = filepath
-
-    # --- IMPORTANT: compute and store centered base position ---
-    bpy.context.view_layer.update()
-
-    bbox_world = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
-    center = sum(bbox_world, mathutils.Vector()) / 8
-
-    # Move object so its visual center is at origin
-    obj.location -= center
-
-    # Save this as stable reference
-    base_location = obj.location.copy()
 
     max_tries = 20
     bbox = None
@@ -82,7 +70,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
 
     for attempt in range(max_tries):
 
-        # --- Reset to centered position (NOT (0,0,0)) ---
+        # Reset do wycentrowanej pozycji
         obj.location = base_location.copy()
 
         # --- Rotation ---
@@ -95,7 +83,7 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
             math.radians(rotation_z),
         )
 
-        # --- Controlled translation relative to center ---
+        # --- Offset względem środka ---
         shrink = 1.0 - (attempt / max_tries)
         max_offset = 0.15 * cam_dist * shrink
 
@@ -110,11 +98,9 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
 
         cx, cy, w, h = result
 
-        # Reject tiny boxes (prevents NaN)
         if w < MIN_SIZE or h < MIN_SIZE:
             continue
 
-        # Check margins
         min_x = cx - w / 2
         max_x = cx + w / 2
         min_y = cy - h / 2
@@ -135,7 +121,15 @@ def render_sample(scene, cam, obj, rotation_z, cam_dist, filepath, class_id, lig
 
     return True
 
+def center_object(obj):
+    bpy.context.view_layer.update()
 
+    bbox_world = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
+    center = sum(bbox_world, mathutils.Vector()) / 8
+
+    obj.location -= center
+
+    return obj.location.copy()  # zwracamy jako base_location
 
 # Compute YOLO bounding box by projecting mesh vertices to camera view
 def get_yolo_bbox(scene, cam, obj):
@@ -209,7 +203,6 @@ def generate_dataset():
 
     export_all_markers(materials)
 
-    # Generate all bit combinations (00, 01, 10, 11)
     for bits in product([0, 1], repeat=2):
         seq_name = f"{bits[0]}{bits[1]}"
         class_id = CLASS_MAP[seq_name]
@@ -222,36 +215,30 @@ def generate_dataset():
         setup_scene()
         cam, light = setup_camera_light(scene)
 
-        rot = ROT_MIN
-
-        # Create object representing current class
         obj = create_object(materials, bits)
 
-        # Iterate through rotation values
+        # >>> KLUCZOWE <<<
+        base_location = center_object(obj)
+
+        rot = ROT_MIN
+
         while rot <= ROT_MAX:
 
             dist = CAM_DIST_MIN
 
-            # Iterate through camera distances
             while dist <= CAM_DIST_MAX:
 
-                obj.location = (0,0,0)
-                obj.rotation_euler = (0,0,0)
+                obj.rotation_euler = (0, 0, 0)
 
                 filename = f"img_{seq_name}_{idx:05d}_rot_{rot}_dist_{dist:.2f}.png"
                 filepath = os.path.join(img_dir, filename)
 
-                # Randomize light energy
                 light.data.energy = random.uniform(LIGHT_ENERGY_MIN, LIGHT_ENERGY_MAX)
-
-                # Randomize light color
                 light.data.color = (
                     random.uniform(LIGHT_COLOR_MIN[0], LIGHT_COLOR_MAX[0]),
                     random.uniform(LIGHT_COLOR_MIN[1], LIGHT_COLOR_MAX[1]),
                     random.uniform(LIGHT_COLOR_MIN[2], LIGHT_COLOR_MAX[2]),
                 )
-
-                # Randomize light size (soft shadows)
                 light.data.size = random.uniform(LIGHT_SIZE_MIN, LIGHT_SIZE_MAX)
 
                 if idx % 20 == 0:
@@ -266,6 +253,7 @@ def generate_dataset():
                     filepath,
                     class_id,
                     light,
+                    base_location,  # <<< NOWE
                 )
 
                 idx += 1
@@ -277,7 +265,6 @@ def generate_dataset():
 
             rot += ROT_STEP
 
-        # Remove object to free memory before next class
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
@@ -404,6 +391,9 @@ def generate_eval_datasets():
 
         obj = create_object(materials, bits)
 
+        # >>> KLUCZOWE <<<
+        base_location = center_object(obj)
+
         # fixed conditions
         light.data.energy = EVAL_LIGHT_ENERGY
         light.data.color = EVAL_LIGHT_COLOR
@@ -415,7 +405,7 @@ def generate_eval_datasets():
 
         while dist <= EVAL_DIST_MAX:
 
-            obj.location = (0.025, 0, 0)
+            obj.location = base_location.copy()
             obj.rotation_euler = (
                 math.radians(EVAL_TILT_X),
                 math.radians(EVAL_TILT_Y),
@@ -453,6 +443,9 @@ def generate_eval_datasets():
 
         obj = create_object(materials, bits)
 
+        # >>> KLUCZOWE <<<
+        base_location = center_object(obj)
+
         # fixed conditions
         light.data.energy = EVAL_LIGHT_ENERGY
         light.data.color = EVAL_LIGHT_COLOR
@@ -464,7 +457,7 @@ def generate_eval_datasets():
 
         while rot <= EVAL_ROT_MAX:
 
-            obj.location = (0, 0, 0)
+            obj.location = base_location.copy()
             obj.rotation_euler = (
                 math.radians(EVAL_TILT_X),
                 math.radians(EVAL_TILT_Y),
@@ -612,6 +605,9 @@ def generate_raw_dataset():
         cam, light = setup_camera_light(scene)
 
         obj = create_object(materials, bits)
+
+        # >>> KLUCZOWE <<<
+        center_object(obj)
 
         light.data.energy = EVAL_LIGHT_ENERGY
         light.data.color = EVAL_LIGHT_COLOR

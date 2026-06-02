@@ -7,10 +7,10 @@ from dataset import balance_dataset, generate_dataset, split_dataset, create_dat
 
 def main():
     # generate_raw_dataset()
-    # generate_dataset()
-    # balance_dataset()
-    # split_dataset()
-    # create_data_yaml()
+    generate_dataset()
+    balance_dataset()
+    split_dataset()
+    create_data_yaml()
     generate_eval_datasets()
 
 if __name__ == "__main__":

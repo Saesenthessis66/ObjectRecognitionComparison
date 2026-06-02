@@ -1,11 +1,11 @@
 import torch
 DATA_YAML = "/workspace/preview/data.yaml"
 
-IMG_SIZE = 320
+IMG_SIZE = 640
 EPOCHS = 80
 BATCH_SIZE = 64
 
-RUN_NAME = "yolov5n_320_noaug"
+RUN_NAME = "yolov5n_640_noaug"
 
 DEVICE = 0 if torch.cuda.is_available() else "cpu"
 

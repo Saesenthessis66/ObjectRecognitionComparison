@@ -63,8 +63,14 @@ def create_material(color):
     bsdf = m.node_tree.nodes["Principled BSDF"]
 
     bsdf.inputs["Base Color"].default_value = (*color, 1)
-    bsdf.inputs["Roughness"].default_value = random.uniform(0.3, 0.7)
-    bsdf.inputs["Specular"].default_value = random.uniform(0.2, 0.6)
+
+    if color == (0.02, 0.02, 0.02):
+        bsdf.inputs["Roughness"].default_value = 1.0
+        bsdf.inputs["Specular"].default_value = 0.0
+        bsdf.inputs["Metallic"].default_value = 0.0
+    else:
+        bsdf.inputs["Roughness"].default_value = random.uniform(0.3, 0.7)
+        bsdf.inputs["Specular"].default_value = random.uniform(0.2, 0.6)
 
     return m
 
