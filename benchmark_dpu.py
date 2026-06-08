@@ -280,43 +280,59 @@ for img_name in os.listdir(IMAGE_DIR):
 csv_file.close()
 
 # ---------------- mAP ----------------
-def compute_map(dets, gts):
-    tp, fp = [], []
-    total_gt = sum(len(x) for x in gts)
+def compute_map(all_dets, all_gts):
+    aps = []
 
-    for dlist, glist in zip(dets, gts):
-        matched = set()
+    for cls in range(NUM_CLASSES):
+        detections = []
+        total_gt = 0
 
-        for d in sorted(dlist, key=lambda x: x[4], reverse=True):
-            best_iou = 0
-            best_idx = -1
+        for dlist, glist in zip(all_dets, all_gts):
+            matched = set()
 
-            for i, g in enumerate(glist):
-                if int(d[5]) != int(g[4]):
-                    continue
+            # filtruj tylko jedną klasę
+            dlist_cls = [d for d in dlist if int(d[5]) == cls]
+            glist_cls = [g for g in glist if int(g[4]) == cls]
 
-                iou_val = iou(d, g)
-                if iou_val > best_iou:
-                    best_iou = iou_val
-                    best_idx = i
+            total_gt += len(glist_cls)
 
-            if best_iou > IOU_THRESH and best_idx not in matched:
-                tp.append(1)
-                fp.append(0)
-                matched.add(best_idx)
-            else:
-                tp.append(0)
-                fp.append(1)
+            dlist_cls = sorted(dlist_cls, key=lambda x: x[4], reverse=True)
 
-    tp = np.cumsum(tp)
-    fp = np.cumsum(fp)
+            for d in dlist_cls:
+                best_iou = 0
+                best_idx = -1
 
-    recall = tp / (total_gt + 1e-6)
-    precision = tp / (tp + fp + 1e-6)
+                for i, g in enumerate(glist_cls):
+                    iou_val = iou(d, g)
+                    if iou_val > best_iou:
+                        best_iou = iou_val
+                        best_idx = i
 
-    return np.trapz(precision, recall)
+                if best_iou > IOU_THRESH and best_idx not in matched:
+                    detections.append((d[4], 1))  # TP
+                    matched.add(best_idx)
+                else:
+                    detections.append((d[4], 0))  # FP
 
-map50 = compute_map(all_dets, all_gts)
+        if total_gt == 0:
+            continue
+
+        # global sort (per class)
+        detections.sort(key=lambda x: x[0], reverse=True)
+
+        tp = np.array([d[1] for d in detections])
+        fp = 1 - tp
+
+        tp_cum = np.cumsum(tp)
+        fp_cum = np.cumsum(fp)
+
+        precision = tp_cum / (tp_cum + fp_cum + 1e-6)
+        recall = tp_cum / (total_gt + 1e-6)
+
+        ap = np.trapz(precision, recall)
+        aps.append(ap)
+
+    return np.mean(aps)
 
 # ---------------- RESULTS ----------------
 avg_time = np.mean(times)
