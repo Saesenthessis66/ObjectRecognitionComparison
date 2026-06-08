@@ -11,7 +11,6 @@ docker compose run --build trainer
 
 docker run -it \
   -v $(pwd)/source:/workspace/source \
-  -v $(pwd)/calib_data:/workspace/calib_data \
   xilinx/vitis-ai-pytorch-cpu:ubuntu2004-3.0.0.106
 
 # SWAP FORWARD METHOD IN YOLO.PY FOR QUANTIZATION!!!
@@ -32,8 +31,21 @@ vai_c_xir \
   -o compiled_model \
   -n yolov5_kv260
 
-scp -O compiled_model/yolov5_kv260.xmodel root@10.1.1.106:/home/root/
-scp -O test.png root@10.1.1.106:/home/root/
+scp -O compiled_model/yolov5_kv260.xmodel root@10.1.1.101:/home/root/
+scp -O -r test root@10.1.1.102:/home/root/
 scp -O root@10.1.1.106:/home/root/result.png .
 
 Can't add new modules after the interpreter has been initialized
+
+docker run -it \
+    --gpus all \
+    -v $(pwd):/workspace \
+    -w /workspace \
+    nvcr.io/nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+apt update && apt install -y python3 python3-pip libgl1
+
+    pip install \
+  numpy==1.26.4 \
+  onnxruntime-gpu==1.18.0 \
+  opencv-python-headless==4.8.1.78

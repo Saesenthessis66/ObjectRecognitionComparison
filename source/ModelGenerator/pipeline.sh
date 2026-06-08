@@ -24,12 +24,11 @@ cd /app/yolov5
 
 python train.py \
   --img 640 \
-  --rect \
-  --batch 64 \
+  --batch 32 \
   --epochs 140 \
   --data /workspace/preview/data.yaml \
   --cfg models/yolov5n.yaml \
-  --weights yolov5n.pt \
+  --weights '' \
   --project runs/train \
   --hyp /app/ModelGenerator/hyp.yaml \
   --save-period 1 \

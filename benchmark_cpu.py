@@ -3,11 +3,10 @@ import time
 import csv
 import cv2
 import numpy as np
-import xir
-import vart
+import onnxruntime as ort
 
 # ---------------- CONFIG ----------------
-MODEL_PATH = "yolov5_kv260.xmodel"
+ONNX_PATH = "DetectionModel_int.onnx"
 IMAGE_DIR = "test/images"
 LABEL_DIR = "test/labels"
 
@@ -23,6 +22,14 @@ anchors = [
 ]
 
 strides = [8, 16, 32]
+
+# ---------------- ONNX ----------------
+session = ort.InferenceSession(
+    ONNX_PATH,
+    providers=["CPUExecutionProvider"]
+)
+
+input_name = session.get_inputs()[0].name
 
 # ---------------- UTILS ----------------
 def sigmoid(x):
@@ -86,6 +93,8 @@ def load_labels(path, w, h):
 
 # ---------------- DECODE ----------------
 def decode(output, anchors, stride):
+    output = np.transpose(output, (0, 2, 3, 1))
+
     bs, h, w, c = output.shape
     output = output.reshape(bs, h, w, 3, 5 + NUM_CLASSES)
 
@@ -125,18 +134,12 @@ def decode(output, anchors, stride):
 
     return boxes
 
-# ---------------- LOAD DPU ----------------
-graph = xir.Graph.deserialize(MODEL_PATH)
-subgraphs = graph.get_root_subgraph().toposort_child_subgraph()
-dpu_subgraph = [sg for sg in subgraphs if sg.has_attr("device") and sg.get_attr("device").upper() == "DPU"][0]
+# ---------------- BENCHMARK ----------------
+times = []
+all_dets = []
+all_gts = []
 
-runner = vart.Runner.create_runner(dpu_subgraph, "run")
-output_tensors = runner.get_output_tensors()
-input_tensor = runner.get_input_tensors()[0]
-input_fix = input_tensor.get_attr("fix_point")
-
-# ---------------- CSV ----------------
-csv_file = open("benchmark_dpu_detailed.csv", "w", newline="")
+csv_file = open("benchmark_cpu_detailed.csv", "w", newline="")
 writer = csv.writer(csv_file)
 
 writer.writerow([
@@ -150,17 +153,10 @@ writer.writerow([
     "inference_time"
 ])
 
-# ---------------- BENCHMARK ----------------
-times = []
-all_dets = []
-all_gts = []
-
 # warmup
-dummy = np.zeros((1, 640, 640, 3), dtype=np.int8)
+dummy = np.random.rand(1, 3, 640, 640).astype(np.float32)
 for _ in range(10):
-    out = [np.empty(tuple(t.dims), dtype=np.int8) for t in output_tensors]
-    jid = runner.execute_async([dummy], out)
-    runner.wait(jid)
+    _ = session.run(None, {input_name: dummy})
 
 for img_name in os.listdir(IMAGE_DIR):
     img_path = os.path.join(IMAGE_DIR, img_name)
@@ -173,27 +169,18 @@ for img_name in os.listdir(IMAGE_DIR):
     # ---------- PREPROCESS ----------
     img, scale, pad_x, pad_y = letterbox(img0, INPUT_SIZE)
     img = img.astype(np.float32) / 255.0
-    img = (img * (2 ** input_fix)).astype(np.int8)
+    img = np.transpose(img, (2, 0, 1))
     img = np.expand_dims(img, 0)
-
-    input_data = [np.ascontiguousarray(img)]
-    output_data = [np.empty(tuple(t.dims), dtype=np.int8) for t in output_tensors]
 
     # ---------- INFERENCE ----------
     start = time.perf_counter()
-    jid = runner.execute_async(input_data, output_data)
-    runner.wait(jid)
+    outputs = session.run(None, {input_name: img})
     end = time.perf_counter()
 
     inf_time = end - start
     times.append(inf_time)
 
     # ---------- POSTPROCESS ----------
-    outputs = []
-    for i, t in enumerate(output_tensors):
-        fix = t.get_attr("fix_point")
-        outputs.append(output_data[i].astype(np.float32) / (2 ** fix))
-
     preds = []
     for i in range(3):
         preds.extend(decode(outputs[i], anchors[i], strides[i]))
@@ -263,7 +250,7 @@ for img_name in os.listdir(IMAGE_DIR):
             inf_time
         ])
 
-    # missed GTs (FN)
+    # log missed GTs (FN)
     for i, g in enumerate(gts):
         if i not in matched:
             writer.writerow([
@@ -322,21 +309,10 @@ map50 = compute_map(all_dets, all_gts)
 avg_time = np.mean(times)
 fps = 1 / avg_time
 
-print("\n===== DPU RESULTS =====")
+print("\n===== CPU RESULTS =====")
 print("Images:", len(times))
 print("Avg inference time:", avg_time)
-print("FPS (DPU only):", fps)
+print("FPS (CPU only):", fps)
 print("mAP@0.5:", map50)
 
-print("Saved benchmark_dpu_detailed.csv")
-
-summary_path = "benchmark_dpu_summary.txt"
-
-with open(summary_path, "w") as f:
-    f.write("===== DPU RESULTS =====\n")
-    f.write(f"Images: {len(times)}\n")
-    f.write(f"Avg inference time: {avg_time}\n")
-    f.write(f"FPS (DPU only): {fps}\n")
-    f.write(f"mAP@0.5: {map50}\n")
-
-print(f"Saved {summary_path}")
+print("Saved benchmark_cpu_detailed.csv")
