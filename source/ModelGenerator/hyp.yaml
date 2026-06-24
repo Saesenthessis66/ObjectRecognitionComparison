@@ -1,42 +1,47 @@
 # optimizer / learning
-lr0: 0.001        # initial learning rate
-lrf: 0.01         # final lr multiplier (cosine decay)
-momentum: 0.9     # beta1 for Adam
-weight_decay: 0.0005  # L2 regularization
+lr0: 0.001
+lrf: 0.01
+momentum: 0.9
+weight_decay: 0.0005
 
 # warmup
-warmup_epochs: 3.0     # warmup duration
-warmup_momentum: 0.8   # initial momentum during warmup
-warmup_bias_lr: 0.1    # higher lr for bias at start
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
 
 # loss gains
-box: 0.08        # box regression weight (higher improves localization)
-cls: 0.5         # classification weight
-cls_pw: 1.0      # class positive weight
-obj: 1.0         # objectness weight
-obj_pw: 1.0      # objectness positive weight
+box: 0.08
+cls: 0.5
+cls_pw: 1.0
+obj: 1.0
+obj_pw: 1.0
 
 # thresholds
-iou_t: 0.20      # IoU threshold for positive anchors
-anchor_t: 4.0    # anchor matching threshold
-fl_gamma: 0.0    # focal loss gamma (disabled)
+iou_t: 0.20
+anchor_t: 4.0
+fl_gamma: 0.0
 
-# augmentation
-hsv_h: 0.01      # hue variation
-hsv_s: 0.3       # saturation variation
-hsv_v: 0.3       # brightness variation
+# augmentation (disabled)
+hsv_h: 0.0
+hsv_s: 0.0
+hsv_v: 0.0
 
-degrees: 5.0     # small rotation
-translate: 0.1   # random shift
-scale: 0.2       # random zoom
+degrees: 0.0
+translate: 0.0
+scale: 0.0
 
-shear: 0.0       # disabled (distorts geometry)
-perspective: 0.0 # disabled (handled in renderer)
+shear: 0.0
+perspective: 0.0
 
-flipud: 0.0      # disabled (changes class)
-fliplr: 0.0      # disabled (changes class)
+flipud: 0.0
+fliplr: 0.0
 
-mosaic: 0.0      # disabled (mixes objects)
-mixup: 0.0       # disabled (blends objects)
+mosaic: 0.0
+mixup: 0.0
 
-copy_paste: 0.1  # duplicates objects without distortion
+copy_paste: 0.0
+
+# Ultralytics-only options
+erasing: 0.0
+auto_augment: null
+close_mosaic: 0

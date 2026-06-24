@@ -21,13 +21,13 @@ TILT_Y_MAX = 6
 OFFSET = 0.002
 
 # Rotation for dataset variation
-ROT_MIN = -48
-ROT_MAX = 48
+ROT_MIN = -60
+ROT_MAX = 60
 ROT_STEP = 4
 
 # Camera distance
-CAM_DIST_MIN = 0.2   
-CAM_DIST_MAX = 1.3   
+CAM_DIST_MIN = 0.55   
+CAM_DIST_MAX = 1.05   
 CAM_DIST_STEP = 0.04
 
 # Class mapping from string to YOLO class id

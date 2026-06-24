@@ -637,3 +637,96 @@ def generate_raw_dataset():
         bpy.data.objects.remove(obj, do_unlink=True)
 
     print("Raw dataset generated (no augmentation).")
+
+def generate_dataset_no_augmentation_new():
+    scene = bpy.context.scene
+
+    configure_render_engine(scene)
+    setup_compositor(scene)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    materials = create_materials()
+
+    for m in materials.values():
+        m.use_fake_user = True
+
+    export_all_markers(materials)
+
+    for bits in product([0, 1], repeat=2):
+
+        seq_name = f"{bits[0]}{bits[1]}"
+        class_id = CLASS_MAP[seq_name]
+
+        img_dir = os.path.join(OUTPUT_DIR, "images", "train")
+        os.makedirs(img_dir, exist_ok=True)
+
+        setup_scene()
+
+        cam, light = setup_camera_light(scene)
+
+        obj = create_object(materials, bits)
+        base_location = center_object(obj)
+
+        # fixed lighting
+        light.data.energy = EVAL_LIGHT_ENERGY
+        light.data.color = EVAL_LIGHT_COLOR
+        light.data.size = EVAL_LIGHT_SIZE
+
+        scene.world.use_nodes = False
+
+        idx = 0
+        rot = ROT_MIN
+
+        while rot <= ROT_MAX:
+
+            dist = CAM_DIST_MIN
+
+            while dist <= CAM_DIST_MAX:
+
+                cam.location = (0, -dist, 0)
+                cam.rotation_euler = (math.radians(90), 0, 0)
+
+                obj.location = base_location.copy()
+                obj.rotation_euler = (
+                    0,
+                    0,
+                    math.radians(rot),
+                )
+
+                bpy.context.view_layer.update()
+
+                bbox = get_yolo_bbox(scene, cam, obj)
+
+                if bbox is not None:
+
+                    filename = (
+                        f"img_{seq_name}_{idx:05d}"
+                        f"_rot_{rot}_dist_{dist:.2f}.png"
+                    )
+
+                    filepath = os.path.join(img_dir, filename)
+
+                    scene.render.filepath = filepath
+                    bpy.ops.render.render(write_still=True)
+
+                    save_yolo_label(
+                        filepath,
+                        class_id,
+                        bbox
+                    )
+
+                    idx += 1
+
+                dist += CAM_DIST_STEP
+
+            rot += ROT_STEP
+
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    # post-processing
+    balance_dataset()
+    split_dataset()
+    create_data_yaml()
+
+    print("Dataset generated without augmentation.")

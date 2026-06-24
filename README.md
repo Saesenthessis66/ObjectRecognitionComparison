@@ -48,4 +48,6 @@ apt update && apt install -y python3 python3-pip libgl1
     pip install \
   numpy==1.26.4 \
   onnxruntime-gpu==1.18.0 \
-  opencv-python-headless==4.8.1.78
+  opencv-python-headless==4.8.1.78 \
+  pandas \
+  matplotlib
