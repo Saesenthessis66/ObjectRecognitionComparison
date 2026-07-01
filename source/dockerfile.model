@@ -28,4 +28,4 @@ RUN pip install --no-cache-dir -r requirements.txt || true
 COPY ModelGenerator/pipeline.sh /app/ModelGenerator/pipeline.sh
 RUN chmod +x /app/ModelGenerator/pipeline.sh
 
-CMD ["/app/ModelGenerator/pipeline.sh"]
+CMD ["bash", "/app/ModelGenerator/pipeline.sh"]

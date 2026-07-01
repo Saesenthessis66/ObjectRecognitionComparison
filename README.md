@@ -17,12 +17,12 @@ docker run -it \
 
 python quant.py \
   --quant_mode calib \
-  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug-aug11/weights/best.pt \
   --img_dir /workspace/source/workspace/calib_data/images
 
 python quant.py \
   --quant_mode test \
-  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug-aug11/weights/best.pt \
   --img_dir  /workspace/source/workspace/calib_data/images
 
 vai_c_xir \
@@ -51,3 +51,49 @@ apt update && apt install -y python3 python3-pip libgl1
   opencv-python-headless==4.8.1.78 \
   pandas \
   matplotlib
+
+
+  cd /home/root
+
+xmutil unloadapp || true
+xmutil loadapp kv260-smartcam
+xmutil listapps
+
+sleep 5
+
+media-ctl -p -d /dev/media0 > /tmp/media0.txt 2>&1 || true
+
+rm -f /home/root/clip.mp4
+
+gst-launch-1.0 -e -v \
+  mediasrcbin media-device=/dev/media0 v4l2src0::io-mode=4 ! \
+  "video/x-raw,width=1920,height=1080,format=NV12,framerate=30/1" ! \
+  queue ! \
+  omxh264enc ! \
+  h264parse ! \
+  mp4mux ! \
+  filesink location=/home/root/clip.mp4
+
+ls -lh /home/root/clip.mp4
+
+rm -f /home/root/clip_hq25.mp4
+
+gst-launch-1.0 -e -v \
+  mediasrcbin media-device=/dev/media0 v4l2src0::io-mode=4 ! \
+  "video/x-raw,width=1920,height=1080,format=NV12,framerate=30/1" ! \
+  queue ! \
+  omxh264enc target-bitrate=25000 control-rate=low-latency qp-mode=auto gop-mode=basic gop-length=60 b-frames=0 num-slices=8 ! \
+  h264parse ! \
+  mp4mux ! \
+  filesink location=/home/root/clip_hq25.mp4
+
+ls -lh /home/root/clip_hq25.mp4
+
+
+python3 video_benchmark.py \
+  --model yolov5_kv260.xmodel \
+  --frames-dir video_frames \
+  --source-fps 5 \
+  --conf-thresh 0.1 \
+  --obj-thresh 0.1 \
+  --save-hit-images

@@ -9,3 +9,10 @@ source/yolov5/compiled_model
 test
 *.csv
 *.png
+video_frames
+frames_dpu_results
+plots_validation
+*.xmodel
+*.onnx
+*.mp4
+*summary.txt
