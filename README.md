@@ -9,20 +9,24 @@ docker compose run --rm clean -d -m
 docker compose run --build generator
 docker compose run --build trainer
 
+In main directory, before source directory 
+
 docker run -it \
   -v $(pwd)/source:/workspace/source \
   xilinx/vitis-ai-pytorch-cpu:ubuntu2004-3.0.0.106
+
+cd source/yolov5
 
 # SWAP FORWARD METHOD IN YOLO.PY FOR QUANTIZATION!!!
 
 python quant.py \
   --quant_mode calib \
-  --weights runs/train/yolov5n_640_noaug-aug11/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
   --img_dir /workspace/source/workspace/calib_data/images
 
 python quant.py \
   --quant_mode test \
-  --weights runs/train/yolov5n_640_noaug-aug11/weights/best.pt \
+  --weights runs/train/yolov5n_640_noaug/weights/best.pt \
   --img_dir  /workspace/source/workspace/calib_data/images
 
 vai_c_xir \
@@ -36,6 +40,10 @@ scp -O -r test root@10.1.1.102:/home/root/
 scp -O root@10.1.1.106:/home/root/result.png .
 
 Can't add new modules after the interpreter has been initialized
+
+# Running benchmarks
+
+
 
 docker run -it \
     --gpus all \
@@ -52,8 +60,9 @@ apt update && apt install -y python3 python3-pip libgl1
   pandas \
   matplotlib
 
+# KRIA KV260 camera setup and benchmark
 
-  cd /home/root
+cd /home/root
 
 xmutil unloadapp || true
 xmutil loadapp kv260-smartcam
