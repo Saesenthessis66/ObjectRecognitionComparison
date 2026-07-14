@@ -82,7 +82,10 @@ cd /workspace/source/yolov5
 
 ## 3. Prepare YOLOv5 for Quantization
 
-Before quantization, the YOLOv5 `forward` method must be changed.
+Before quantization, the YOLOv5 `forward` method must be changed. It is located in 
+```text
+source/yolov5/models/yolo.py
+```
 
 ---
 
