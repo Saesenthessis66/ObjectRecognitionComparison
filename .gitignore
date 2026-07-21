@@ -16,3 +16,4 @@ plots_validation
 *.onnx
 *.mp4
 *summary.txt
+*.jpg
